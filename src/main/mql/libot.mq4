@@ -199,6 +199,7 @@ int calcTrends(const int count,
    double min, max, rate;
    int tick, prevTick, nrTrends;
    datetime minTime, maxTime, tickTime;
+   bool minFound;
 
    nrTrends = 0;
    
@@ -221,18 +222,20 @@ int calcTrends(const int count,
             tick = n;
             max = rate;
             msgOkAbort("Set new max: " + rate + " at " + maxTime + " [" + tick + "]");
+            minFound = true;
          } else if (rate <= min) {
          // new minimum rate, time
             minTime = time[n];
             tick = n;
             min = rate;
             msgOkAbort("Set new min: " + rate + " at " + minTime + " [" + tick + "]");
-         } else if ( (tick - prevTick) >= min_trend_period ) { // FIXME: Also ensure a percent change from previous  rate
-         // n is past a reversal of minimum configured period
-         // FIXME: Trend may continue past N, during an intermediate reversal of a shorter period
-         // 
-            msgOkAbort("Exiting main loop at n = " + n);
-            break;
+         } else if((nrTrends > 0)  && 
+                   ((minFound && (trends[nrTrends -1].startRate < rate)) // no longer down trend
+                     || (trends[nrTrends -1].startRate > rate) // no longer up trend
+                     )) 
+                 {
+                  msgOkAbort("Exiting main loop at n = " + n);
+                  break;
          } else {
          // intermemdiate datum during a longer trend
             // tick = n;
