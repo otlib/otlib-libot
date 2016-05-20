@@ -208,7 +208,7 @@ int calcTrends(const int count,
          // cf. http://stockcharts.com/school/doku.php?id=chart_school:chart_analysis:heikin_ashi
          rate = calcRate( open[n], high[n], low[n], close[n]);
          msgOkAbort("Average Rate: " + rate);
-         if (rate >= max && ! minFound) {
+         if (rate >= max) {
             maxTime = time[n];
             tick = n;
             max = rate;
