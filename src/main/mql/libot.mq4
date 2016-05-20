@@ -61,13 +61,15 @@ int errorNotify(const string message) {
 int msgOkAbort(const string message) {
 
     Print(message);
-
-    // int retv = MessageBox(message, "Notifiation", MB_OKCANCEL); // DEBUG BUILD
-    int retv = IDOK; // NOT DEBUG BUILD
     
-   if (retv == IDCANCEL) {
-      ExpertRemove();
-   }
+    int retv = IDOK; // NOT DEBUG BUILD
+    // DEBUG BUILD
+    /* int retv = MessageBox(message, "Notifiation", MB_OKCANCEL); // DEBUG BUILD
+       if (retv == IDCANCEL) {
+         ExpertRemove();
+       }
+    */
+    
    return retv;
 }
 
@@ -210,18 +212,18 @@ int calcTrends(const int count,
             maxTime = time[n];
             tick = n;
             max = rate;
-            msgOkAbort("Set new max: " + rate + " at " + maxTime);
+            msgOkAbort("Set new max: " + rate + " at " + maxTime + " [" + tick + "]");
          } else if (rate <= min) {
             minTime = time[n];
             tick = n;
             min = rate;
-            msgOkAbort("Set new min: " + rate + " at " + minTime);
+            msgOkAbort("Set new min: " + rate + " at " + minTime + " [" + tick + "]");
          } else if ( (n - prevTick) >= min_trend_period ) { 
-            msgOkAbort("Exiting for n = " + n);
+            msgOkAbort("Exiting main loop at n = " + n);
             break;
          } else {
             // tick = n;
-            Print(" Skip : " + time[n]); // DEBUG
+            Print(" Skip : " + time[n] + " [" + tick + "]"); // DEBUG
          }
       }
 
