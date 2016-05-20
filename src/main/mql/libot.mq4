@@ -34,11 +34,15 @@
 #property version   "1.00"
 #property strict
 #property script_show_inputs
+
+
+
 //--- input parameters
 input int   a_period_init=5; // e.g STO//D, STO//SLOWING
-input int   b_period_init=a_period_int * 3; // e.g STO//K, CCI PERIOD, FISHER PERIOD
-input int   c_period_init=b_period_init * 2; // e.g LWMA period
-input int   min_reversal_period = 4 // minimum number of clock ticks for reversal calculation
+input int   b_period_init=15; // e.g STO//K, CCI PERIOD, FISHER PERIOD
+input int   c_period_init=10; // e.g LWMA period
+input int   min_trend_period = 4; // minimum number of clock ticks for trend calculation
+
 // OTLIB
 
 // - curency pairs
@@ -54,14 +58,22 @@ int errorNotify(string message) {
    return MessageBox(message,"Error",MB_OKCANCEL);
 }
 
+int msgOkAbort(string message) {
+   int retv = MessageBox(message, "Notifiation", MB_OKCANCEL);
+   if (retv == IDCANCEL) {
+      ExpertRemove();
+   }
+   return retv;
+}
+
 // - market information
 
-// FIXME: See also double SymbolInfoDouble(Symbol(),SYMBOL_{ASK|BID});
+// See also: SymbolInfoDouble(Symbol(),SYMBOL_{ASK|BID});
 
 
 double getAskP(){ // market ask price, current chart and symbol
    string symbol = getCurrentSymbol();
-   return getAskPriceFor(symbol);
+   return getAskPForS(symbol);
 }
 
 
@@ -74,13 +86,13 @@ double getAskPForC(long id){
 
 
 double getAskPForS(string symbol){
-   return MarketInfo(sybol,MODE_ASK);
+   return MarketInfo(symbol,MODE_ASK);
 }
 
 
 double getOfferP(){ // market offer price, i.e bid price
    string symbol = getCurrentSymbol();
-   return getOfferPriceFor(symbol);
+   return getOfferPForS(symbol);
 }
 
 
@@ -93,13 +105,13 @@ double getOfferPForC(long id){
 
 
 double getOfferPForS(string symbol){
-   return MarketInfo(sybol,MODE_BID);
+   return MarketInfo(symbol,MODE_BID);
 }
 
 
 double getSpread() { // diference of ask and offer price
    string symbol = getCurrentSymbol();
-   return getSpreadFor(symbol);
+   return getSpreadForS(symbol);
 }
 
 
@@ -111,264 +123,132 @@ double getSpreadForC(long id){
 }
 
 
-dougle getSpreadForS(string symbol) {
-   double ask = getAskPriceFor(symbol);
-   double offer = getOfferPriceFor(symbol);
+double getSpreadForS(string symbol) {
+   double ask = getAskPForS(symbol);
+   double offer = getOfferPForS(symbol);
    return ask - offer;
 }
 
 // -- market performance data
 
-/* see instead: MqlTick, MqlRates 
-struct rateTick {
-   // see also: MqlTick, SymbolInfoTick()
-   double rate;
-   datetime time;
-}
-*/
 
-
-/* see instead: MqlTick, MqlRates 
-
-struct OHLCTick {
-   // assumption: market symbol and timeframe stored external to this data object
-   double open; // iOpen
-   double high; // iHigh
-   double low; // iLow
-   double close; // iClose
-   // int timeframe; // see Period(); must be consistent across iOpen, iHigh, iLow, iClose calls
-   datetime time; // iTime - converted from 'shift' as applied in iHigh, ...
-}
-
-
-*/
-
-// struct HATick - TO DO, HA Indicator Calculation (series-based)
-
-
-double calcAvgRate(MqlRates rate) {
-   // calculation is similar to HA-close for Heikin Ashi indicators
-   // cf. http://stockcharts.com/school/doku.php?id=chart_school:chart_analysis:heikin_ashi
-   double rt = ( rate.open + rate.high + rate.low + rate.close ) / 4;
-   return rt;
-}
-
-
-
-// FIXME: Use SymbolInfoTick(...) ?
-
-rateTick getHighest(int period, int count, int start) {
-   // period 0 indicates current timeframe of active chart
-  string symbol = getCurrentSymbol();
-  return getHighestForS(symbol, period, count, start);
-}
-
-
-rateTick getHighestForC(int id, int count, int start) {
-   string symbol = ChartSymbol(id);
-   int period = ChartPeriod(id);
-   return getHighestForS(symbol, period, count, start);
-} 
-
-
-rateTick getHighestForS(string symbol, int period, int count, int start) {
-   int offset = iHighest(symbol,period,MODE_HIGH,count,start);
-   double rate = iHigh(symbol, period, offset);
-   datetime time = iTime(symbol, period, offset);
-   rateTick tick = {rate, time};
-   return tick;
-}
-
-
-rateTick getLowest(int period, int count, int start) {
-   // period 0 indicates current timeframe of active chart
-  string symbol = getCurrentSymbol();
-  return getLowestForS(symbol, period, count, start);
-}
-
-
-rateTick getLowestForC(int id, int count, int start) {
-   string symbol = ChartSymbol(id);
-   int period = ChartPeriod(id);
-   return getLowestForS(symbol, period, count, start);
-} 
-
-
-rateTick getLowestForS(string symbol, int period, int count, int start) {
-   int offset = iLowest(symbol,period,MODE_LOW,count,start);
-   double rate = iLow(symbol, period, offset);
-   datetime time = iTime(symbol, period, offset);
-   rateTick tick = {rate, time};
-   return tick;
-}
-
-
-// -- 
-
-struct MinMax {
-   int minOffset;
-   double minRate;
-   int maxOffset;
-   double maxRate;
-   // MinMax prev;
-   MinMax *next;
-}
-
-
-struct Trend {
-   int startOffset;
-   double startrate;
-   int endOffset;
+class Trend {
+public:
+   datetime startTime;
+   datetime endTime;
+   double startRate;
    double endRate;
-}
+   Trend* next;
+   Trend* previous;
+          Trend(void) { next = NULL; previous = NULL; };
+          Trend(datetime end, double rate, Trend* &trend){ endTime = end; endRate = rate; next = trend; previous = NULL; };
+   double getChange(); 
+};
 
 
-
-Reversal[] plotReversals(int period, int count, int start) {
-  // ...
-}
-
-Reversal[] plotReversalsForS(string symbol, int period, int count, int start) { 
- // ...
-} 
-
-Reversal[] plotLimits(string symbol, int period, int count, int start, bool calcMin, bool calcMax) {
-   if(count >= min_reversal_period) {
-      int n = 0; // number of indexed min,max tries
-      MinMax *m = plotMinMax(symbol, period, count, start, calcMin, calcMax);
-      if (m != NULL){
-         
-      int nextCount = count, nextStart = start, offt, difft;
-      bool calcMin, calcMax;
-      
-         // iterate (to limtis of stack)
-         
-      do{ // first subregion
-         calcMin = (m.minOffset - start) > min_reversal_period; // ?
-         calcMax = (m.maxOffset - start) > min_reversal_period; // ?
-         offt = m.minOffset < m.maxOffset ? m.minOffset : m.maxOffset; // ?
-         nextCount = offt - start; // X
-         nextStart = start; // X
-         if (calcMin || calcMax && nextCount > min_reversal_period) {
-            // (start ...  nextStart]
-            m.next = plotMinMax(symbol, period, nextCount, nextStart, calcMin, calcMax);
-            m = m.next
-            n++;
-            } else {
-               calcMin = FALSE;
-               calcMax = FALSE;
-            }
-         } while (calcMin || calcMax);
-         
-
-      do{ // second subregion
-         calcMin = (m.minOffset - start) > min_reversal_period; // ?
-         calcMax = (m.maxOffset - start) > min_reversal_period; // ?
-         offt = m.minOffset < m.maxOffset ? m.minOffset : m.maxOffset; // ?
-         netCount = count - offt; // X
-         nextStart = offt; // X
-         if (calcMin || calcMax && nextCount > min_reversal_period) {
-            // (start ...  nextStart]
-            m.next = plotMinMax(symbol, period, nextCount, nextStart, calcMin, calcMax);
-            m = m.next
-            n++;
-            } else {
-               calcMin = FALSE;
-               calcMax = FALSE;
-            }
-         } while (calcMin || calcMax);
-
-         
-         // TO DO: 'expand' M to individual min, max rates, sorting results by offset; calculate reversal offsets, magnitudes
-         // then graph min->max->min... lines for debug + indicator [XXXX]
-         
-         return expandMinMax(MinMax, n); 
-       }
-       }
-    else { // if error occurred - handled elsewhere
-      return NULL;
-    }
-}
-
-MinMax[] simplifyMinMax(MinMax &value, count) {
-   MinMax[count] *mm; // * & ??
-   MinMax *cur = value;
-   for(int n = 0; n < count; n++) {
-      mm[n] = cur;
-      cur = cur.next;
+double Trend::getChange(void) {
+   if (this.previous != NULL) {
+      return this.previous.endRate - this.endRate;
+   } else {
+      return 0;
    }
-   return mm;
 }
 
-Reversal[] expandMinMax(MinMax &value, int count) {
-   MinMax *cur = value;
-   MinMax[] *mm = simplifyMinMax(value, count);
-   Trend[count] trend = NULL;
-   for (int a = 0; a < count; a++) {
-      // ...
-      trend[a] = { startOff, startRate, endOff, endRate}
-      
-      mm = mm.next;
-   }
-   return rev;
 
-}
+// NB: see also SymbolInfoTick()
 
-MinMax plotMinMax(string symbol, int period, int count, int start, bool calcMin, bool CalcMax ) {
+
+Trend *plotTrendsForS(string symbol, int timeframe, int count, int start) {
+
+   MqlRates rates[];
+   // ArraySetAsSeries(rates, true);
    
-   MqlRates[] rates;
-   ArraySetAsSeries(rates, true);
-   int retv = CopyRates(symbol, period, start, count, &rates);
+   Trend *lastTrend = new Trend;
+   Trend *trend =    lastTrend;
+      
+   int retv = CopyRates(symbol, timeframe, start, count, rates);
    if (retv > 0) {
-      int minOffset = 0, maxOffset = 0;
-      double min, max, cur;
-      rt MqlRates;
+      double min, max, rate;
+      int minTick, maxTick, tick, nextStart, nextCount;
+      datetime time;
       
-      if(calcMin) { 
-         min = getLowestForS(symbol, period, count, start); 
-      } else {
-         min = NULL;  
-      }
-      if(calcMax){ 
-          max = getHighestForS(symbol, period, count, start);
-      } else {
-         max = NULL;
-      }   
+      min = getOfferPForS(symbol);
+      max = 0;
+      nextStart = start;
+      nextCount = retv;
 
-      // FIXME: Also copy a reference to rt.time for each of min, max ?
-      for(int a = 0; a < count; a++) {
-         rt = rates[a];
-         cur = calcAvgRate(rt);
-         if (calcMax && cur >= max) {
-            max = cur; 
-            maxOffset = a;
-         } else if (calcMin && cur <= min) {
-            min = cur;
-            minOffset = a;
+      bool minFound, complete;
+      minFound = false;
+      complete = false;
+
+      while(!complete && nextCount > min_trend_period) {
+         msgOkAbort("Start, Count " + nextStart + ", " + nextCount);
+         
+         for (int n = nextStart; n <= nextCount; n++) {
+            // rate calculation is similar to HA-close for Heikin Ashi indicators
+            // cf. http://stockcharts.com/school/doku.php?id=chart_school:chart_analysis:heikin_ashi
+            rate = ( rates[n].open + rates[n].high + rates[n].low + rates[n].close ) / 4;
+            msgOkAbort("Average Rate: " + rate);
+            if (rate >= max && ! minFound) {
+               maxTick = n;
+               max = rate;
+               msgOkAbort("Set new max: " + rate + " at " + n);
+            } else if (rate <= min) {
+               minTick = n;
+               min = rate;
+               minFound = true;
+               msgOkAbort("Set new min: " + rate + " at " + n);
+            } else { // ?? if ( (nextCount - n) > min_trend_period ) ??
+               // minFound = rate > min;
+               msgOkAbort("Exiting for n = " + n);
+               break;
+            }
          }
-      }
-      MinMax m = {minOfset, min, maxOffset, max};
-      return m;
-      }
-      
-   }
-   else  { 
-      retv = errorNotify("Error " + GetLastError() + " [CopyRates] when copying history data for symbol " + symbol + ". Cancel to remove EA");
-      if (retv = IDCANCEL) {
-         ExpertRemove(); // !
-         return NULL;
-      }
-   } 
 
+         if ( minFound ) {
+            rate = min;
+            tick = minTick;
+            max = min; // reset for next iteration
+            minFound = false; // reset for next iteration
+         } else {
+            rate = max;
+            tick = maxTick;
+            min = max; // reset for next iteration
+            minFound = true; // reset for next iteration
+         }
+         time = iTime(symbol, timeframe, tick);
+
+         msgOkAbort("Intermediate Rate, Tick, Time: " + rate + ", " + tick + ", " + time);
+         
+         trend.startRate = rate;
+         trend.startTime = time;
+         
+         nextStart = tick;
+         nextCount = nextCount - tick;
+         // TO DO : reset 'rate'  !!!!!!!!!
+         
+         complete = (nextCount <= min_trend_period); // ???
+
+         if (!complete) {
+           trend = new Trend(time, rate, trend);
+           trend.next.previous = trend;
+         } // if !complete
+      } // while !complete
+   } else {
+      retv = errorNotify("Error " + IntegerToString(GetLastError()) + " [CopyRates] when copying history data for symbol " + symbol + ". Cancel to remove EA");
+      if (retv == IDCANCEL) {
+         ExpertRemove(); // !
+      }
+   }
+   return lastTrend;
 }
 
 
-//+------------------------------------------------------------------+
-//| Script program start function                                    |
-//+------------------------------------------------------------------+
-//void OnStart()
-//  {
-//---
+void OnStart() {
+
+   MessageBox("Visible : " + CHART_VISIBLE_BARS, "Notification", MB_OK);
+   Trend *last = plotTrendsForS(getCurrentSymbol(),PERIOD_M1, CHART_VISIBLE_BARS, 0);
+   // MessageBox("Rate: " + DoubleToString(last.startRate),"Notification",MB_OK);
    
-//  }
-//+------------------------------------------------------------------+
+}
+
