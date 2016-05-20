@@ -63,7 +63,7 @@ int msgOkAbort(const string message) {
     Print(message);
     
     int retv = IDOK; // NOT DEBUG BUILD
-    // DEBUG BUILD
+    // DEBUG BUILD      
     /* int retv = MessageBox(message, "Notifiation", MB_OKCANCEL); // DEBUG BUILD
        if (retv == IDCANCEL) {
          ExpertRemove();
@@ -188,6 +188,13 @@ int calcTrends(const int count,
                   const double &low[],
                   const double &close[],
                   const datetime &time[]) {
+   // traverse {open, high, low, close, time} arrays for a duration 
+   // of `count` beginning at `start`. Calculate time and rate of 
+   // beginnings of market trend reversals, storing that data in 
+   // the `trends` array and returning the number of trends calculated.
+   //
+   // `trends` should be of a length no greater than the length of each
+   // of the {open, high, low, close, time} arrays
 
    double min, max, rate;
    int tick, prevTick, nrTrends;
@@ -209,32 +216,54 @@ int calcTrends(const int count,
          rate = calcRate( open[n], high[n], low[n], close[n]);
          // msgOkAbort("Average Rate: " + rate); // DEBUG
          if (rate >= max) {
+         // new maximum rate, time
             maxTime = time[n];
             tick = n;
             max = rate;
             msgOkAbort("Set new max: " + rate + " at " + maxTime + " [" + tick + "]");
          } else if (rate <= min) {
+         // new minimum rate, time
             minTime = time[n];
             tick = n;
             min = rate;
             msgOkAbort("Set new min: " + rate + " at " + minTime + " [" + tick + "]");
-         } else if ( (n - prevTick) >= min_trend_period ) { 
+         } else if ( (tick - prevTick) >= min_trend_period ) { // FIXME: Also ensure a percent change from previous  rate
+         // n is past a reversal of minimum configured period
+         // FIXME: Trend may continue past N, during an intermediate reversal of a shorter period
+         // 
             msgOkAbort("Exiting main loop at n = " + n);
             break;
          } else {
+         // intermemdiate datum during a longer trend
             // tick = n;
             Print(" Skip : " + time[n] + " [" + tick + "]"); // DEBUG
          }
       }
 
       if ( minTime < maxTime ) {
+         // nearer trend has approached a minimum
          rate = min;
          tickTime = minTime;
          max = min; // reset for next iteration
+         if (nrTrends > 0 && trends[nrTrends-1].startRate > rate) {
+            // ignore this tick, to represent the longer downward trend
+            // (FIXME) Not the best way to go about this logic - this should override min_period test
+            prevTick = tick;
+            msgOkAbort("Skip minimum " + tick);
+            continue; // FIXME: Computationally expensive ?
+         }
       } else {
+         // trend has approached a maximum
          rate = max;
          tickTime = maxTime;
          min = max; // reset for next iteration
+         if (nrTrends > 0 && trends[nrTrends-1].startRate < rate) {
+            // ignore this tick, to represent the longer upward trend // FIXME: Computationally expensive?
+            // (FIXME) Not the best way to go about this logic - this should override min_period test
+            prevTick = tick;
+            msgOkAbort("Skip maximum " + tick);
+            continue;
+         }
       }
 
       msgOkAbort("Trend " + nrTrends + " Intermediate Rate, Time, Tick: " + rate + ", " + tickTime + ", " + tick);
@@ -260,6 +289,7 @@ int calcTrends(const int count,
 }
 
 void drawTrendsForS(const long id, const Trend* &trends[], const int count) {
+   // FIXME: Cleanups - function name
    datetime startT, endT;
    double startP, endP;
    bool start, end;
@@ -293,7 +323,7 @@ void drawTrendsForS(const long id, const Trend* &trends[], const int count) {
    }
 }
 
-// see also: Heikin Ashi.mq4 - src more consistent than the documentation
+// see also: Heikin Ashi.mq4 src - "Existing work" in MQL4 indicator development
 
 void OnStart() {
    // run program in script mode (DEBUG)
