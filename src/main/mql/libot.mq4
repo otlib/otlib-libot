@@ -41,7 +41,7 @@
 input int   a_period_init=5; // e.g STO//D, STO//SLOWING
 input int   b_period_init=15; // e.g STO//K, CCI PERIOD, FISHER PERIOD
 input int   c_period_init=10; // e.g LWMA period
-input int   min_trend_period = 4; // minimum number of clock ticks for trend calculation
+input int   min_trend_period = 3; // minimum number of clock ticks for trend calculation
 
 // OTLIB
 
@@ -59,6 +59,8 @@ int errorNotify(const string message) {
 }
 
 int msgOkAbort(const string message) {
+
+    Print(message);
 
     // int retv = MessageBox(message, "Notifiation", MB_OKCANCEL); // DEBUG BUILD
     int retv = IDOK; // NOT DEBUG BUILD
@@ -186,23 +188,20 @@ int calcTrends(const int count,
                   const datetime &time[]) {
 
    double min, max, rate;
-   int tick, nextStart, prevStart, nrTrends;
+   int tick, prevTick, nrTrends;
    datetime minTime, maxTime, tickTime;
-   bool minFound, complete;
-      
+
    nrTrends = 0;
    
    min = calcRate(open[start], high[start], low[start], close[start]);
    max = 0;
-   nextStart = start;
-   prevStart = start;
+   tick = start;
+   prevTick = start;
 
-   minFound = false;
-
-   while((count - nextStart) > min_trend_period) {
-      msgOkAbort("Start, Count " + nextStart + ", " + count);
+   while((count - tick) > min_trend_period) {
+      msgOkAbort("Start, Count " + prevTick + ", " + count);
       
-      for (int n = nextStart; n <= count; n++) {
+      for (int n = prevTick; n <= count; n++) {
          // rate calculation is similar to HA-close for Heikin Ashi indicators
          // cf. http://stockcharts.com/school/doku.php?id=chart_school:chart_analysis:heikin_ashi
          rate = calcRate( open[n], high[n], low[n], close[n]);
@@ -216,27 +215,27 @@ int calcTrends(const int count,
             minTime = time[n];
             tick = n;
             min = rate;
-            minFound = true;
             msgOkAbort("Set new min: " + rate + " at " + minTime);
-         } else { //  if ( (n - nextStart) >= min_trend_period ) { 
+         } else if ( (n - prevTick) >= min_trend_period ) { 
             msgOkAbort("Exiting for n = " + n);
             break;
+         } else {
+            // tick = n;
+            Print(" Skip : " + time[n]); // DEBUG
          }
       }
 
-      if ( minFound ) {
+      if ( minTime < maxTime ) {
          rate = min;
          tickTime = minTime;
          max = min; // reset for next iteration
-         minFound = false; // reset for next iteration
       } else {
          rate = max;
          tickTime = maxTime;
          min = max; // reset for next iteration
-         minFound = true; // reset for next iteration
       }
 
-      msgOkAbort("Intermediate Rate, Tick, Time: " + rate + ", " + tick + ", " + tickTime);
+      msgOkAbort("Trend " + nrTrends + " Intermediate Rate, Time, Tick: " + rate + ", " + tickTime + ", " + tick);
       
       trends[nrTrends] = new Trend(tickTime, rate);
       if (nrTrends > 0) {
@@ -248,8 +247,7 @@ int calcTrends(const int count,
       nrTrends++;
       
       if(tick != 0) {
-         prevStart = nextStart;
-         nextStart = tick;
+         prevTick = tick;
       } else {
          break;
       }
@@ -271,7 +269,7 @@ void drawTrendsForS(const long id, const Trend* &trends[], const int count) {
       if (startT != 0 && startP != 0) {
          start = true;
          name = "TREND START " + startT + " " + MathRand(); // FIXME
-         // ObjectCreate(id,name, OBJ_ARROW_CHECK, 0, startT, startP);
+         ObjectCreate(id,name, OBJ_VLINE, 0, startT, 0);
       }
       
       endT = trends[n].endTime;
@@ -279,7 +277,7 @@ void drawTrendsForS(const long id, const Trend* &trends[], const int count) {
       if (endT != 0 && endP != 0) {
          end = true;
          name = "TREND END " + endT + " " + MathRand(); // FIXME
-         // ObjectCreate(id,name, OBJ_ARROW_STOP, 0, endT, endP);
+         ObjectCreate(id,name, OBJ_VLINE, 0, endT, 0);
       }
       
       if(start && end) {
@@ -300,15 +298,15 @@ void OnStart() {
    
    // DEBUG
    ObjectsDeleteAll(0,-1);
-   MessageBox("Visible : " + CHART_VISIBLE_BARS, "Notification", MB_OK); // DEBUG INFO
+   msgOkAbort("Visible : " + CHART_VISIBLE_BARS); // DEBUG INFO
    
-   const string symbol = getCurrentSymbol();
+   // const string symbol = getCurrentSymbol();
    
    int count=CHART_VISIBLE_BARS;
    Trend *trends[CHART_VISIBLE_BARS]; // ... can't specify 'count' for eval as an index value (MQL4)
    
    // use buffered Open, High, Low, Close, Time instead of CopyRates(...)
-   RefreshRates();
+   // RefreshRates();
    const int nrTrends = calcTrends(count, 0, trends, Open, High, Low, Close, Time); // 15 instead of rates_total
    
    // MessageBox("Rate: " + DoubleToString(last.startRate),"Notification",MB_OK); // DEBUG INFO
