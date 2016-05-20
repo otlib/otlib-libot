@@ -136,7 +136,7 @@ double getSpreadForS(const string symbol) {
 
 // -- market performance data
 
-class Trend {
+class Trend { // FIXME: separate this into four buffers, two of datetime[] and two of double[]
 public:
    datetime startTime;
    datetime endTime;
@@ -198,28 +198,27 @@ int calcTrends(const int count,
    prevStart = start;
 
    minFound = false;
-   complete = false;
 
-   while(!complete && (count - nextStart) > min_trend_period) {
+   while((count - nextStart) > min_trend_period) {
       msgOkAbort("Start, Count " + nextStart + ", " + count);
       
       for (int n = nextStart; n <= count; n++) {
          // rate calculation is similar to HA-close for Heikin Ashi indicators
          // cf. http://stockcharts.com/school/doku.php?id=chart_school:chart_analysis:heikin_ashi
          rate = calcRate( open[n], high[n], low[n], close[n]);
-         msgOkAbort("Average Rate: " + rate);
+         // msgOkAbort("Average Rate: " + rate); // DEBUG
          if (rate >= max) {
             maxTime = time[n];
             tick = n;
             max = rate;
-            msgOkAbort("Set new max: " + rate + " at " + n);
+            msgOkAbort("Set new max: " + rate + " at " + maxTime);
          } else if (rate <= min) {
             minTime = time[n];
             tick = n;
             min = rate;
             minFound = true;
-            msgOkAbort("Set new min: " + rate + " at " + n);
-         } else if ( (nextStart - prevStart) >= min_trend_period ) { 
+            msgOkAbort("Set new min: " + rate + " at " + minTime);
+         } else { //  if ( (n - nextStart) >= min_trend_period ) { 
             msgOkAbort("Exiting for n = " + n);
             break;
          }
@@ -255,31 +254,41 @@ int calcTrends(const int count,
          break;
       }
       
-      complete = ((count - nextStart) < min_trend_period);
-      
       }
 
    return nrTrends;
 }
 
-void drawTrendsForS(const string symbol, const Trend* &trends[], const int count) {
+void drawTrendsForS(const long id, const Trend* &trends[], const int count) {
    datetime startT, endT;
    double startP, endP;
+   bool start, end;
    string name;
 
    for (int n = 0; n < count; n++) {
       startT = trends[n].startTime;
       startP = trends[n].startRate;
       if (startT != 0 && startP != 0) {
+         start = true;
          name = "TREND START " + startT + " " + MathRand(); // FIXME
-         ObjectCreate(symbol,name, OBJ_ARROW_CHECK, 0, startT, startP);
+         // ObjectCreate(id,name, OBJ_ARROW_CHECK, 0, startT, startP);
       }
       
       endT = trends[n].endTime;
       endP = trends[n].endRate;
       if (endT != 0 && endP != 0) {
-         name = "TREND END " + endT + " " + MathRand(); // FIME
-         ObjectCreate(symbol,name, OBJ_ARROW_STOP, 0, endT, endP);
+         end = true;
+         name = "TREND END " + endT + " " + MathRand(); // FIXME
+         // ObjectCreate(id,name, OBJ_ARROW_STOP, 0, endT, endP);
+      }
+      
+      if(start && end) {
+         name = "TREND LINE " + MathRand(); // FIXME
+         ObjectCreate(id, name, OBJ_TREND, 0, startT, startP, endT, endP);
+         ObjectSetInteger(id,name,OBJPROP_RAY_RIGHT,false);
+         ObjectSetInteger(id,name,OBJPROP_COLOR,clrAliceBlue); // FIME: MAKE PROPERTY
+      } else {
+         Print("Trend not complete : [" + startT + " ... " + endT + "]");
       }
    }
 }
@@ -295,15 +304,16 @@ void OnStart() {
    
    const string symbol = getCurrentSymbol();
    
-   int count=50;
-   Trend *trends[50]; // ... can't specify 'count' for eval as an index value (MQL4)
+   int count=CHART_VISIBLE_BARS;
+   Trend *trends[CHART_VISIBLE_BARS]; // ... can't specify 'count' for eval as an index value (MQL4)
    
    // use buffered Open, High, Low, Close, Time instead of CopyRates(...)
+   RefreshRates();
    const int nrTrends = calcTrends(count, 0, trends, Open, High, Low, Close, Time); // 15 instead of rates_total
    
    // MessageBox("Rate: " + DoubleToString(last.startRate),"Notification",MB_OK); // DEBUG INFO
    
-   drawTrendsForS(symbol, trends, nrTrends); // DEBUG INFO
+   drawTrendsForS(ChartID(), trends, nrTrends); // DEBUG INFO
    
    ExpertRemove(); // DEBUG
    
