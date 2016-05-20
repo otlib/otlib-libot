@@ -53,12 +53,12 @@ string getCurrentSymbol() {
 
 // - interactive messaging 
 
-int errorNotify(string message) {
+int errorNotify(const string message) {
    Print(message);
    return MessageBox(message,"Error",MB_OKCANCEL);
 }
 
-int msgOkAbort(string message) {
+int msgOkAbort(const string message) {
 
     // int retv = MessageBox(message, "Notifiation", MB_OKCANCEL); // DEBUG BUILD
     int retv = IDOK; // NOT DEBUG BUILD
@@ -82,7 +82,7 @@ double getAskP(){ // market ask price, current chart and symbol
 }
 
 
-double getAskPForC(long id){ 
+double getAskPForC(const long id){ 
    // return ask price for chart with specified chart ID. 
    // ID 0 indicates current chart
    string symbol = ChartSymbol(id);
@@ -90,7 +90,7 @@ double getAskPForC(long id){
 }
 
 
-double getAskPForS(string symbol){
+double getAskPForS(const string symbol){
    return MarketInfo(symbol,MODE_ASK);
 }
 
@@ -101,7 +101,7 @@ double getOfferP(){ // market offer price, i.e bid price
 }
 
 
-double getOfferPForC(long id){ 
+double getOfferPForC(const long id){ 
    // return offer price for chart with specified chart ID. 
    // ID 0 indicates current chart
    string symbol = ChartSymbol(id);
@@ -109,7 +109,7 @@ double getOfferPForC(long id){
 }
 
 
-double getOfferPForS(string symbol){
+double getOfferPForS(const string symbol){
    return MarketInfo(symbol,MODE_BID);
 }
 
@@ -120,7 +120,7 @@ double getSpread() { // diference of ask and offer price
 }
 
 
-double getSpreadForC(long id){ 
+double getSpreadForC(const long id){ 
    // return market spread for chart with specified chart ID. 
    // ID 0 indicates current chart
    string symbol = ChartSymbol(id);
@@ -128,7 +128,7 @@ double getSpreadForC(long id){
 }
 
 
-double getSpreadForS(string symbol) {
+double getSpreadForS(const string symbol) {
    double ask = getAskPForS(symbol);
    double offer = getOfferPForS(symbol);
    return ask - offer;
@@ -160,7 +160,7 @@ Trend::Trend(datetime time, double rate) {
   endRate = rate; 
 }
 
-double getChange(Trend &trend) {
+double getChange(const Trend &trend) {
    return (trend.endRate - trend.startRate);
 }
 
@@ -240,13 +240,13 @@ int calcTrends(const int count,
       msgOkAbort("Intermediate Rate, Tick, Time: " + rate + ", " + tick + ", " + tickTime);
       
       trends[nrTrends] = new Trend(tickTime, rate);
-      if (nrTrends > 1) {
+      if (nrTrends > 0) {
          int offt = nrTrends - 1;
          Trend *next = trends[offt];
          next.startRate = rate;
          next.startTime = tickTime;
       }
-      nrTrends ++;
+      nrTrends++;
       
       if(tick != 0) {
          prevStart = nextStart;
@@ -262,7 +262,7 @@ int calcTrends(const int count,
    return nrTrends;
 }
 
-void drawTrendsForS(const string symbol, const Trend* &trends[], int count) {
+void drawTrendsForS(const string symbol, const Trend* &trends[], const int count) {
    datetime startT, endT;
    double startP, endP;
    string name;
