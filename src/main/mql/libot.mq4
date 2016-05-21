@@ -204,34 +204,36 @@ int calcTrends(const int count,
    // `trends` should be of a length no greater than the length of each
    // of the {open, high, low, close, time} arrays
 
-   int nrTrends;
+   int sTick, pTick, nrTrends;
    double rate, sRate, pRate;
-   datetime sTime;
    bool calcMax = false;
 
    nrTrends = 0;
 
    sRate = calcRate(open[start], high[start], low[start], close[start]);
    pRate = sRate;
-   sTime = time[start];
+   sTick = start;
 
    for(int n=start; n < count; n++) {
       rate = calcRate(open[n], high[n], low[n], close[n]);
       if (rate > pRate && calcMax) {
       // continuing trend rate > pRate > sRate
          pRate = rate;
+         pTick = n;
       } else if (rate <= pRate && !calcMax) {
       // continuing trend rate <= pRate <= sRate
          pRate = rate;
+         pTick = n;
       } else if ( (calcMax && rate <= pRate) ||
                   (!calcMax && rate > pRate) ) { 
-      // trend interrupted
-           trends[nrTrends++] = new Trend(sTime, sRate, time[n-1], pRate);
-           sRate = pRate;
-           pRate = rate;
-           sTime = time[n-1];
-           msgOkAbort("Trend mark: " + sTime);
-           calcMax = (pRate > sRate); // reset
+      // trend interrupted - TO DO apply further data filtering
+         msgOkAbort("Trend mark: " + time[sTick]);
+         trends[nrTrends++] = new Trend(time[pTick], pRate, time[sTick], sRate);
+         sRate = pRate;
+         pRate = rate;
+         sTick = pTick;
+         pTick = n;
+         calcMax = (pRate > sRate);
       }
    }
 
