@@ -207,16 +207,19 @@ int calcTrends(const int count,
    int sTick, pTick, nrTrends;
    double rate, sRate, pRate;
    bool calcMax = false;
+   
+   Trend* sTrend = NULL;
 
    nrTrends = 0;
 
    sRate = calcRate(open[start], high[start], low[start], close[start]);
    pRate = sRate;
    sTick = start;
+   pTick = start;
 
    for(int n=start; n < count; n++) {
       rate = calcRate(open[n], high[n], low[n], close[n]);
-      if (rate > pRate && calcMax) {
+      if (rate > pRate && calcMax ) {
       // continuing trend rate > pRate > sRate
          pRate = rate;
          pTick = n;
@@ -224,17 +227,35 @@ int calcTrends(const int count,
       // continuing trend rate <= pRate <= sRate
          pRate = rate;
          pTick = n;
-      } else if ( (calcMax && rate <= pRate) ||
-                  (!calcMax && rate > pRate) ) { 
-      // trend interrupted - TO DO apply further data filtering
-         msgOkAbort("Trend mark: " + time[sTick]);
-         trends[nrTrends++] = new Trend(time[pTick], pRate, time[sTick], sRate);
-         sRate = pRate;
-         pRate = rate;
-         sTick = pTick;
-         pTick = n;
-         calcMax = (pRate > sRate);
-      }
+      } else if ((n - sTick) < min_trend_period) {
+      // disregard any intermediate trend reversal. 
+      // udpate rate, tick information
+         pRate = rate; 
+         pTick = n;      
+      } else { 
+      // trend interrupted 
+         if ( (sTrend != NULL) &&
+                ((calcMax && (sTrend.startRate > sTrend.endRate)) ||
+                 (!calcMax && (sTrend.startRate <= sTrend.endRate)))) {
+               // unlogged reversal
+               
+               // calcMax = (sTrend.startRate <= sTrend.endRate);
+               // pRate = rate;
+               // pTick = n;
+
+             } else {
+               msgOkAbort("Trend mark: " + time[sTick]);
+               
+               sTrend = new Trend(time[pTick], pRate, time[sTick], sRate);
+               trends[nrTrends++] = sTrend;
+    
+               sRate = pRate;
+               pRate = rate;
+               sTick = pTick;
+               pTick = n;
+               calcMax = (sTrend.startRate <= sTrend.endRate);
+            }
+      } 
    }
 
    return nrTrends;
