@@ -222,6 +222,7 @@ int calcTrends(const int count,
             tick = n;
             max = rate;
             msgOkAbort("Set new max: " + rate + " at " + maxTime + " [" + tick + "]");
+            // set minFound in either of new maximum or new minimum (?)
             minFound = false;
          } else if (rate <= min) {
          // new minimum rate, time
@@ -231,8 +232,8 @@ int calcTrends(const int count,
             msgOkAbort("Set new min: " + rate + " at " + minTime + " [" + tick + "]");
             minFound = true;
          } else if((nrTrends > 0)  && 
-                   ((minFound && (trends[nrTrends -1].startRate < rate)) // no longer down trend
-                     || (trends[nrTrends -1].startRate > rate) // no longer up trend
+                   ((minFound && (rate > trends[nrTrends -1].startRate)) // no longer down trend
+                     || (!minFound && (rate < trends[nrTrends -1].startRate)) // no longer up trend
                      )) 
                  {
                   msgOkAbort("Exiting main loop at n = " + n);
