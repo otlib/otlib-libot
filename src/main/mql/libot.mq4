@@ -206,7 +206,6 @@ int calcTrends(const int count,
 
    int sTick, pTick, nrTrends;
    double rate, sRate, pRate;
-   bool calcMax = false;
    
    Trend* sTrend = NULL;
 
@@ -217,8 +216,13 @@ int calcTrends(const int count,
    sTick = start;
    pTick = start;
 
-   for(int n=start; n < count; n++) {
-      rate = calcRate(open[n], high[n], low[n], close[n]);
+   bool calcMax = (sRate < calcRate(open[start+1], high[start+1], low[start+1], close[start+1]));  
+
+   int n;
+   
+   for(n=start; n < count; n++) {
+      // rate = calcRate(open[n], high[n], low[n], close[n]);
+      rate = calcMax ? high[n] : low[n]; 
       if (rate > pRate && calcMax ) {
       // continuing trend rate > pRate > sRate
          pRate = high[n]; // X
@@ -250,12 +254,19 @@ int calcTrends(const int count,
                trends[nrTrends++] = sTrend;
     
                sRate = pRate;
-               pRate = calcMax ? low[n] : high[n]; // X
+               pRate = calcMax ? high[n] : low[n]; // X
                sTick = pTick;
                pTick = n;
                calcMax = (sTrend.startRate <= sTrend.endRate);
             }
       } 
+   }
+   
+   if (sTrend != NULL) {
+      // final (series-first) trend
+      pRate = calcMax ? high[n] : low[n]; // X
+      sTrend = new Trend(time[n], pRate, time[sTick], sRate);
+      trends[nrTrends++] = sTrend;
    }
 
    return nrTrends;
@@ -311,9 +322,12 @@ void OnStart() {
    int count=CHART_VISIBLE_BARS;
    Trend *trends[CHART_VISIBLE_BARS]; // ... can't specify 'count' for eval as an index value (MQL4)
    
+   int first = WindowFirstVisibleBar(); // "First" as in the peculiar "Series" sense
+   int start = MathAbs(first - CHART_VISIBLE_BARS); // OK except when window "right border" has "blank space"
+   
    // use buffered Open, High, Low, Close, Time instead of CopyRates(...)
    // RefreshRates();
-   const int nrTrends = calcTrends(count, 0, trends, Open, High, Low, Close, Time); // 15 instead of rates_total
+   const int nrTrends = calcTrends(count, start, trends, Open, High, Low, Close, Time); // 15 instead of rates_total
    
    // MessageBox("Rate: " + DoubleToString(last.startRate),"Notification",MB_OK); // DEBUG INFO
    
