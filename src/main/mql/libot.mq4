@@ -232,8 +232,6 @@ int calcTrends(const int count,
    int n;
    
    for(n=start; n < count; n++) {
-      // rate = calcRate(open[n], high[n], low[n], close[n]);
-      // rate = calcMax ? high[n] : low[n]; // X
       rate = calcMax ? calcRateHHL(high[n], low[n]) : calcRateHLL(high[n], low[n]);
       if (rate > pRate && calcMax ) {
       // continuing trend rate > pRate > sRate
@@ -254,10 +252,8 @@ int calcTrends(const int count,
                 ((calcMax && (sTrend.startRate > sTrend.endRate)) ||
                  (!calcMax && (sTrend.startRate <= sTrend.endRate)))) {
                // unlogged reversal
-               
-               // calcMax = (sTrend.startRate <= sTrend.endRate);
-               // pRate = rate;
-               // pTick = n;
+               pRate = rate;
+               pTick = n;
 
              } else {
                msgOkAbort("Trend mark: " + time[sTick]);
