@@ -41,7 +41,7 @@
 input int   a_period_init=5; // e.g STO//D, STO//SLOWING
 input int   b_period_init=15; // e.g STO//K, CCI PERIOD, FISHER PERIOD
 input int   c_period_init=10; // e.g LWMA period
-input int   min_trend_period = 3; // minimum number of clock ticks for trend calculation
+input int   min_trend_period = 4; // minimum number of clock ticks for trend calculation
 
 // OTLIB
 
@@ -177,14 +177,25 @@ double getChange(const Trend &trend) {
 }
 
 
-
-
-double calcRate(double open, double high, double low, double close) {
+double calcRateHAC(const double open, const double high, const double low, const double close) {
+   // calculate rate in a manner of Heikin Ashi Close
    double value = ( open + high + low + close ) / 4;
-   // double value = (high + low) / 2;
-   // double value = (open + close) / 2;
    return value;
 }
+
+double calcRateHHL(const double high, const double low) {
+   // calculate rate as (H + H + L) / 3
+   double value = ((high * 2) + low ) / 3;
+   return value;
+}
+
+
+double calcRateHLL(const double high, const double low) {
+   // calculate rate as (H + L + L) / 3
+   double value = ((low * 2) + high ) / 3;
+   return value;   
+}
+
 
 // NB: see also SymbolInfoTick()
 
@@ -211,18 +222,19 @@ int calcTrends(const int count,
 
    nrTrends = 0;
 
-   sRate = calcRate(open[start], high[start], low[start], close[start]);
+   sRate = calcRateHAC(open[start], high[start], low[start], close[start]);
    pRate = sRate;
    sTick = start;
    pTick = start;
 
-   bool calcMax = (sRate < calcRate(open[start+1], high[start+1], low[start+1], close[start+1]));  
+   bool calcMax = (sRate < calcRateHAC(open[start+1], high[start+1], low[start+1], close[start+1]));  
 
    int n;
    
    for(n=start; n < count; n++) {
       // rate = calcRate(open[n], high[n], low[n], close[n]);
-      rate = calcMax ? high[n] : low[n]; // X
+      // rate = calcMax ? high[n] : low[n]; // X
+      rate = calcMax ? calcRateHHL(high[n], low[n]) : calcRateHLL(high[n], low[n]);
       if (rate > pRate && calcMax ) {
       // continuing trend rate > pRate > sRate
          pRate = rate;
@@ -264,7 +276,7 @@ int calcTrends(const int count,
    
    if (sTrend != NULL) {
       // final (series-first) trend
-      pRate = calcMax ? high[n] : low[n]; // X
+      pRate = calcMax ? calcRateHHL(high[n], low[n]) : calcRateHLL(high[n], low[n]);
       sTrend = new Trend(time[n], pRate, time[sTick], sRate);
       trends[nrTrends++] = sTrend;
    }
