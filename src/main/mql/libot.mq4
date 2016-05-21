@@ -158,14 +158,14 @@ Trend::Trend() {
   endRate = 0; 
 }
 
-Trend::Trend(datetime time, double rate) {
+Trend::Trend(const datetime time,const double rate) {
   startRate = 0;
   startTime = 0;
   endTime = time;
   endRate = rate; 
 }
 
-Trend::Trend(datetime t1, double r1, datetime t2, double r2) {
+Trend::Trend(const datetime t1, const double r1, const datetime t2, const double r2) {
    startRate = r1;
    startTime = t1;
    endRate = r2;
@@ -284,7 +284,7 @@ void drawTrendsForS(const long id, const Trend* &trends[], const int count) {
       startP = trends[n].startRate;
       if (startT != 0 && startP != 0) {
          start = true;
-         name = "TREND START " + startT + " " + MathRand(); // FIXME
+         name = "TREND START " + startT + " " + MathRand(); // FIXME use formatted strings
          ObjectCreate(id,name, OBJ_VLINE, 0, startT, 0);
       }
       
@@ -292,19 +292,19 @@ void drawTrendsForS(const long id, const Trend* &trends[], const int count) {
       endP = trends[n].endRate;
       if (endT != 0 && endP != 0) {
          end = true;
-         name = "TREND END " + endT + " " + MathRand(); // FIXME
+         name = "TREND END " + endT + " " + MathRand(); // FIXME use formatted strings
          ObjectCreate(id,name, OBJ_VLINE, 0, endT, 0);
       }
       
       if(start && end) {
-         name = "TREND LINE " + MathRand(); // FIXME
+         name = "TREND LINE " + MathRand(); // FIXME use formatted strings
          ObjectCreate(id, name, OBJ_TREND, 0, startT, startP, endT, endP);
          ObjectSetInteger(id,name,OBJPROP_RAY_RIGHT,false);
          ObjectSetInteger(id,name,OBJPROP_COLOR,clrLime); // FIME: MAKE PROPERTY
          ObjectSetInteger(id,name,OBJPROP_WIDTH,3); // FIME: MAKE PROPERTY
-      } else {
+      } /* else { // DEBUG
          Print("Trend not complete : [" + startT + " ... " + endT + "]");
-      }
+      } */
    }
 }
 
@@ -319,17 +319,16 @@ void OnStart() {
    
    // const string symbol = getCurrentSymbol();
    
-   int count=CHART_VISIBLE_BARS;
-   Trend *trends[CHART_VISIBLE_BARS]; // ... can't specify 'count' for eval as an index value (MQL4)
+   // for the script implementation of this EA, calculate bars from bar 0
+   // to the first visible bar in the chart
+   int count = WindowFirstVisibleBar();
+   int first = 0;
+   Trend *trends[];
+   ArrayResize(trends, MathCeil(count / min_trend_period), 0);
    
-   int first = WindowFirstVisibleBar(); // "First" as in the peculiar "Series" sense
-   int start = MathAbs(first - CHART_VISIBLE_BARS); // OK except when window "right border" has "blank space"
-   
-   // use buffered Open, High, Low, Close, Time instead of CopyRates(...)
-   // RefreshRates();
-   const int nrTrends = calcTrends(count, start, trends, Open, High, Low, Close, Time); // 15 instead of rates_total
-   
-   // MessageBox("Rate: " + DoubleToString(last.startRate),"Notification",MB_OK); // DEBUG INFO
+   // This script will use buffered Open, High, Low, Close, Time instead of CopyRates(...)
+   // see also: OnCalculate(), RefreshRates()
+   const int nrTrends = calcTrends(count, first, trends, Open, High, Low, Close, Time); // 15 instead of rates_total
    
    drawTrendsForS(ChartID(), trends, nrTrends); // DEBUG INFO
    
