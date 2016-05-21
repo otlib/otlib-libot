@@ -148,6 +148,7 @@ public:
    double endRate;
       Trend() ;
       Trend(datetime time, double rate);
+      Trend(datetime t1, double r1, datetime t2, double r2);
 };
 
 Trend::Trend() {
@@ -162,6 +163,13 @@ Trend::Trend(datetime time, double rate) {
   startTime = 0;
   endTime = time;
   endRate = rate; 
+}
+
+Trend::Trend(datetime t1, double r1, datetime t2, double r2) {
+   startRate = r1;
+   startTime = t1;
+   endRate = r2;
+   endTime = t2;
 }
 
 double getChange(const Trend &trend) {
@@ -196,100 +204,36 @@ int calcTrends(const int count,
    // `trends` should be of a length no greater than the length of each
    // of the {open, high, low, close, time} arrays
 
-   double min, max, rate;
-   int tick, prevTick, nrTrends;
-   datetime minTime, maxTime, tickTime;
-   bool minFound = false;
+   int nrTrends;
+   double rate, sRate, pRate;
+   datetime sTime;
+   bool calcMax = false;
 
    nrTrends = 0;
-   
-   min = calcRate(open[start], high[start], low[start], close[start]);
-   max = 0;
-   tick = start;
-   prevTick = start;
 
-   while((count - tick) > min_trend_period) {
-      msgOkAbort("Start, Count " + prevTick + ", " + count);
-      
-      for (int n = prevTick; n <= count; n++) {
-         // rate calculation is similar to HA-close for Heikin Ashi indicators
-         // cf. http://stockcharts.com/school/doku.php?id=chart_school:chart_analysis:heikin_ashi
-         rate = calcRate( open[n], high[n], low[n], close[n]);
-         // msgOkAbort("Average Rate: " + rate); // DEBUG
-         if (rate >= max) {
-         // new maximum rate, time
-            maxTime = time[n];
-            tick = n;
-            max = rate;
-            msgOkAbort("Set new max: " + rate + " at " + maxTime + " [" + tick + "]");
-            // set minFound in either of new maximum or new minimum (?)
-            minFound = false;
-         } else if (rate <= min) {
-         // new minimum rate, time
-            minTime = time[n];
-            tick = n;
-            min = rate;
-            msgOkAbort("Set new min: " + rate + " at " + minTime + " [" + tick + "]");
-            minFound = true;
-         } else if((nrTrends > 0)  && 
-                   ((minFound && (rate > trends[nrTrends -1].startRate)) // no longer down trend
-                     || (!minFound && (rate < trends[nrTrends -1].startRate)) // no longer up trend
-                     )) 
-                 {
-                  msgOkAbort("Exiting main loop at n = " + n);
-                  break;
-         } else {
-         // intermemdiate datum during a longer trend
-            Print(" Skip : " + time[n] + " [" + tick + "]"); // DEBUG
-         }
-      }
+   sRate = calcRate(open[start], high[start], low[start], close[start]);
+   pRate = sRate;
+   sTime = time[start];
 
-      if ( minTime < maxTime ) {
-         // nearer trend has approached a minimum
-         rate = min;
-         tickTime = minTime;
-         max = min; // reset for next iteration
-         if (nrTrends > 0 && trends[nrTrends-1].startRate > rate) {
-            // ignore this tick, to represent the longer downward trend
-            // (FIXME) Not the best way to go about this logic - this should override min_period test
-            prevTick = tick;
-            msgOkAbort("Skip minimum " + tick);
-            // max = trends[nrTrends-1].startRate;
-            continue;
-         }
-      } else {
-         // trend has approached a maximum
-         rate = max;
-         tickTime = maxTime;
-         min = max; // reset for next iteration
-         if (nrTrends > 0 && trends[nrTrends-1].startRate < rate) {
-            // ignore this tick, to represent the longer upward trend // FIXME: Computationally expensive?
-            // (FIXME) Not the best way to go about this logic - this should override min_period test
-            prevTick = tick;
-            msgOkAbort("Skip maximum " + tick);
-            // min = trends[nrTrends-1].startRate;
-            continue;
-         }
+   for(int n=start; n < count; n++) {
+      rate = calcRate(open[n], high[n], low[n], close[n]);
+      if (rate > pRate && calcMax) {
+      // continuing trend rate > pRate > sRate
+         pRate = rate;
+      } else if (rate <= pRate && !calcMax) {
+      // continuing trend rate <= pRate <= sRate
+         pRate = rate;
+      } else if ( (calcMax && rate <= pRate) ||
+                  (!calcMax && rate > pRate) ) { 
+      // trend interrupted
+           trends[nrTrends++] = new Trend(sTime, sRate, time[n-1], pRate);
+           sRate = pRate;
+           pRate = rate;
+           sTime = time[n-1];
+           msgOkAbort("Trend mark: " + sTime);
+           calcMax = (pRate > sRate); // reset
       }
-
-      msgOkAbort("Trend " + nrTrends + " Intermediate Rate, Time, Tick: " + rate + ", " + tickTime + ", " + tick);
-      
-      trends[nrTrends] = new Trend(tickTime, rate);
-      if (nrTrends > 0) {
-         int offt = nrTrends - 1;
-         Trend *next = trends[offt];
-         next.startRate = rate;
-         next.startTime = tickTime;
-      }
-      nrTrends++;
-      
-      if(tick != 0) {
-         prevTick = tick;
-      } else {
-         break;
-      }
-      
-      }
+   }
 
    return nrTrends;
 }
@@ -322,7 +266,8 @@ void drawTrendsForS(const long id, const Trend* &trends[], const int count) {
          name = "TREND LINE " + MathRand(); // FIXME
          ObjectCreate(id, name, OBJ_TREND, 0, startT, startP, endT, endP);
          ObjectSetInteger(id,name,OBJPROP_RAY_RIGHT,false);
-         ObjectSetInteger(id,name,OBJPROP_COLOR,clrAliceBlue); // FIME: MAKE PROPERTY
+         ObjectSetInteger(id,name,OBJPROP_COLOR,clrLime); // FIME: MAKE PROPERTY
+         ObjectSetInteger(id,name,OBJPROP_WIDTH,3); // FIME: MAKE PROPERTY
       } else {
          Print("Trend not complete : [" + startT + " ... " + endT + "]");
       }
