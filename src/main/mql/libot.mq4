@@ -221,16 +221,16 @@ int calcTrends(const int count,
       rate = calcRate(open[n], high[n], low[n], close[n]);
       if (rate > pRate && calcMax ) {
       // continuing trend rate > pRate > sRate
-         pRate = rate;
+         pRate = high[n]; // X
          pTick = n;
       } else if (rate <= pRate && !calcMax) {
       // continuing trend rate <= pRate <= sRate
-         pRate = rate;
+         pRate = low[n]; // X
          pTick = n;
       } else if ((n - sTick) < min_trend_period) {
       // disregard any intermediate trend reversal. 
       // udpate rate, tick information
-         pRate = rate; 
+         pRate = calcMax ? high[n] : low[n]; // X
          pTick = n;      
       } else { 
       // trend interrupted 
@@ -250,7 +250,7 @@ int calcTrends(const int count,
                trends[nrTrends++] = sTrend;
     
                sRate = pRate;
-               pRate = rate;
+               pRate = calcMax ? low[n] : high[n]; // X
                sTick = pTick;
                pTick = n;
                calcMax = (sTrend.startRate <= sTrend.endRate);
