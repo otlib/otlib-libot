@@ -199,7 +199,7 @@ int calcTrends(const int count,
    double min, max, rate;
    int tick, prevTick, nrTrends;
    datetime minTime, maxTime, tickTime;
-   bool minFound;
+   bool minFound = false;
 
    nrTrends = 0;
    
@@ -222,13 +222,14 @@ int calcTrends(const int count,
             tick = n;
             max = rate;
             msgOkAbort("Set new max: " + rate + " at " + maxTime + " [" + tick + "]");
-            minFound = true;
+            minFound = false;
          } else if (rate <= min) {
          // new minimum rate, time
             minTime = time[n];
             tick = n;
             min = rate;
             msgOkAbort("Set new min: " + rate + " at " + minTime + " [" + tick + "]");
+            minFound = true;
          } else if((nrTrends > 0)  && 
                    ((minFound && (trends[nrTrends -1].startRate < rate)) // no longer down trend
                      || (trends[nrTrends -1].startRate > rate) // no longer up trend
@@ -238,7 +239,6 @@ int calcTrends(const int count,
                   break;
          } else {
          // intermemdiate datum during a longer trend
-            // tick = n;
             Print(" Skip : " + time[n] + " [" + tick + "]"); // DEBUG
          }
       }
@@ -253,7 +253,8 @@ int calcTrends(const int count,
             // (FIXME) Not the best way to go about this logic - this should override min_period test
             prevTick = tick;
             msgOkAbort("Skip minimum " + tick);
-            continue; // FIXME: Computationally expensive ?
+            // max = trends[nrTrends-1].startRate;
+            continue;
          }
       } else {
          // trend has approached a maximum
@@ -265,6 +266,7 @@ int calcTrends(const int count,
             // (FIXME) Not the best way to go about this logic - this should override min_period test
             prevTick = tick;
             msgOkAbort("Skip maximum " + tick);
+            // min = trends[nrTrends-1].startRate;
             continue;
          }
       }
