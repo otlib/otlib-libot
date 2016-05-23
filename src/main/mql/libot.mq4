@@ -238,7 +238,9 @@ int calcTrends(const int count,
    int n;
    
    for(n=start+1; n < count; n++) {
-      rate = calcMax ? calcRateHHL(high[n], low[n]) : calcRateHLL(high[n], low[n]);
+      // rate = calcMax ? calcRateHHL(high[n], low[n]) : calcRateHLL(high[n], low[n]);
+      // apply a simple high/low calculation for logical dispatch to trend filtering
+      rate = calcMax ? high[n] : low[n];
       if (calcMax && (rate > pRate)) {
       // continuing trend rate > pRate > sRate
          pRate = rate;
@@ -262,6 +264,7 @@ int calcTrends(const int count,
          calcMax = (pRate <= sRate); // set for traversing reversal of previous trend
          sRate = pRate;
          pRate = calcMax ? calcRateHHL(high[n], low[n]) : calcRateHLL(high[n], low[n]);
+         // pRate = calcMax ? high[n] : low[n];
          sTick = pTick;
          pTick = n;
          logDebug(StringFormat("New calcMax %s, pRate %d, sRate %d", (calcMax? "true" : "false"), pRate, sRate));
@@ -270,8 +273,9 @@ int calcTrends(const int count,
    
    if (sTrend != NULL) { // nrTrends != 0
       // final (series-first) trend
-      pRate = calcMax ? calcRateHHL(high[n], low[n]) : calcRateHLL(high[n], low[n]);
       logDebug(StringFormat("Last Trend (%d,  %f) => (%d, %f)", time[sTick], sRate, time[n], pRate));
+      pRate = calcMax ? calcRateHHL(high[n], low[n]) : calcRateHLL(high[n], low[n]);
+      // pRate = calcMax ? high[n] : low[n];
       sTrend = new Trend(time[n], pRate, time[sTick], sRate);
       trends[nrTrends++] = sTrend;
    }
