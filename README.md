@@ -1,5 +1,41 @@
-otlib-libot
-===========
+otlib-libot - Open Trading Toolkit libot
+========================================
+
+# Description
+
+**Project Status:** Development
+
+**Project Resources**
+
+* `src/main/mql/libot.mq4`
+    * **Platform:** MetaTrader 4
+    * **Format:** MQL4
+    * **Synopsis:** Prototype for otlib EA0
+    * **Description**
+        * Market Trend Detection and Trend Reversal Detection
+            * Analysis onto _affine space_ of market {time, rate} data
+              for an individual market exchange chart
+            * `calcTrends` funtion conducts variable high/low rate
+              selection in a manner of the _Heikin Ashi_ indicator,
+              applied in a manner of stochastic differential analysis
+              accross an individual series of sequential market chart
+              _ticks_, proceeding in a _reverse chronological_
+              analysis
+        * Initial prototype begins from `OnStart`.
+        * Designed to be run as a MetaTrader 4 _Script_ program
+        * Provides visual indicator of analysis
+        * Program parameter `log_debug` provides control over printing
+          of program debug messages to MetaTrader _Experts_ log
+
+* `src/main/mql/clearObj.mq4`
+    * **Platform:** MetaTrader 4
+    * **Format:** MQL4
+    * **Synopsis:** Script utility for MetaTrader chart management
+    * **Description**
+        * `OnStart` function deletes all chart objects from the
+          primary data window of the active chart
+        * Utility developed for application in parallel to `libot.mq4`
+      
 
 # Copyright
 
