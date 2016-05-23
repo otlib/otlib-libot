@@ -41,7 +41,8 @@
 input int   a_period_init=5; // e.g STO//D, STO//SLOWING
 input int   b_period_init=15; // e.g STO//K, CCI PERIOD, FISHER PERIOD
 input int   c_period_init=10; // e.g LWMA period
-input int   min_trend_period = 4; // minimum number of clock ticks for trend calculation
+input int   min_trend_period = 3; // minimum number of clock ticks for trend calculation
+input bool  log_debug = true; // print initial runtime information to Experts log
 
 // OTLIB
 
@@ -58,20 +59,25 @@ int errorNotify(const string message) {
    return MessageBox(message,"Error",MB_OKCANCEL);
 }
 
-int msgOkAbort(const string message) {
+void logDebug(const string message) { 
+   // FIXME: Reimplement w/ a reusable preprocessor macro, optimizing the call pattern for this fn
+   if (log_debug) {
+      Print(message);
+   }
+}
 
+/*
+int msgOkAbort(const string message) { // FIXME: REDESIGN THIS FN
     Print(message);
-    
     int retv = IDOK; // NOT DEBUG BUILD
     // DEBUG BUILD      
-    /* int retv = MessageBox(message, "Notifiation", MB_OKCANCEL); // DEBUG BUILD
-       if (retv == IDCANCEL) {
-         ExpertRemove();
-       }
-    */
-    
+    // int retv = MessageBox(message, "Notifiation", MB_OKCANCEL); // DEBUG BUILD
+    //   if (retv == IDCANCEL) {
+    //     ExpertRemove();
+    //   }
    return retv;
 }
+*/
 
 // - charts
 
@@ -231,48 +237,57 @@ int calcTrends(const int count,
 
    int n;
    
-   for(n=start; n < count; n++) {
+   for(n=start+1; n < count; n++) {
       rate = calcMax ? calcRateHHL(high[n], low[n]) : calcRateHLL(high[n], low[n]);
-      if (rate > pRate && calcMax ) {
+      if (calcMax && (rate > pRate)) {
       // continuing trend rate > pRate > sRate
          pRate = rate;
          pTick = n;
-      } else if (rate <= pRate && !calcMax) {
+      } else if (!calcMax && (rate <= pRate)) {
       // continuing trend rate <= pRate <= sRate
          pRate = rate;
          pTick = n;
-      } else if ((n - sTick) < min_trend_period) {
+      } /* else if ((n - sTick) < min_trend_period) {
       // disregard any intermediate trend reversal. 
       // udpate rate, tick information
          pRate = rate;
          pTick = n;      
-      } else { 
-      // trend interrupted 
-         if ( (sTrend != NULL) &&
-                ((calcMax && (sTrend.startRate > sTrend.endRate)) ||
-                 (!calcMax && (sTrend.startRate <= sTrend.endRate)))) {
-               // unlogged reversal
-               pRate = rate;
-               pTick = n;
+      } */ else { 
+      // trend interrupted ?
+      
+/*         if ( (sTrend != NULL) &&
+                ((calcMax && (pRate > sTrend.startRate)) ||
+                 (!calcMax && (pRate  <= sTrend.startRate))
+                )
+              ) {
+               // not actually a reversal - no Trend record to create
+               // pRate = rate;
+               // pTick = n;
+               
+               logDebug(StringFormat("Skip rate %f, tick %d [calcMax = %s] ", rate, n, (calcMax? "true" : "false")));
+
 
              } else {
-               msgOkAbort("Trend mark: " + time[sTick]);
-               
+             */
+               logDebug(StringFormat("Record Trend (%d,  %f) => (%d, %f) [tick %d]", time[sTick], sRate, time[pTick], pRate, n));
                sTrend = new Trend(time[pTick], pRate, time[sTick], sRate);
                trends[nrTrends++] = sTrend;
-    
+               logDebug(StringFormat("New number of trends: %d", nrTrends));
+
+               calcMax = (pRate <= sRate); // set for traversing reversal of previous trend
                sRate = pRate;
-               pRate = rate;
+               pRate = calcMax ? calcRateHHL(high[n], low[n]) : calcRateHLL(high[n], low[n]);
                sTick = pTick;
                pTick = n;
-               calcMax = (sTrend.startRate <= sTrend.endRate);
-            }
+               logDebug(StringFormat("New calcMax %s, pRate %d, sRate %d", (calcMax? "true" : "false"), pRate, sRate));
+           /* } */
       } 
    }
    
-   if (sTrend != NULL) {
+   if (sTrend != NULL) { // nrTrends != 0
       // final (series-first) trend
       pRate = calcMax ? calcRateHHL(high[n], low[n]) : calcRateHLL(high[n], low[n]);
+      logDebug(StringFormat("Last Trend (%d,  %f) => (%d, %f)", time[sTick], sRate, time[n], pRate));
       sTrend = new Trend(time[n], pRate, time[sTick], sRate);
       trends[nrTrends++] = sTrend;
    }
@@ -322,8 +337,8 @@ void OnStart() {
    // run program in script mode (DEBUG)
    
    // DEBUG
-   ObjectsDeleteAll(0,-1);
-   msgOkAbort("Visible : " + CHART_VISIBLE_BARS); // DEBUG INFO
+   // logDebug("Clear Objects");
+   // ObjectsDeleteAll(0,-1);
    
    // const string symbol = getCurrentSymbol();
    
@@ -331,8 +346,13 @@ void OnStart() {
    // to the first visible bar in the chart
    int count = WindowFirstVisibleBar();
    int first = 0;
+   // int maxTrends = MathCeil(count / min_trend_period); // FIXME: maxTrends calculation
+   int maxTrends = count;
+   // FIXME: Log message not printed
+   logDebug(StringFormat("First %d, Count: %d, Maximum nr. trends: %d", first, count, maxTrends));
+   
    Trend *trends[];
-   ArrayResize(trends, MathCeil(count / min_trend_period), 0);
+   ArrayResize(trends, maxTrends, 0); // FIXME: Is this flummoxing things?
    
    // This script will use buffered Open, High, Low, Close, Time instead of CopyRates(...)
    // see also: OnCalculate(), RefreshRates()
