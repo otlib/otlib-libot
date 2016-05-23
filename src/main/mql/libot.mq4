@@ -42,6 +42,7 @@ input int   a_period_init=5; // e.g STO//D, STO//SLOWING
 input int   b_period_init=15; // e.g STO//K, CCI PERIOD, FISHER PERIOD
 input int   c_period_init=10; // e.g LWMA period
 input bool  log_debug = true; // print initial runtime information to Experts log
+input bool  chart_draw_times = false; // draw trend duration times
 
 // OTLIB
 
@@ -347,16 +348,19 @@ void drawTrendsForS(const long id, const Trend* &trends[], const int count) {
       startP = trends[n].startRate;
       if (startT != 0 && startP != 0) {
          start = true;
-         name = StringFormat("TREND %d START %s", n, TimeToString(startT)); // FIXME use formatted strings
-         ObjectCreate(id,name, OBJ_VLINE, 0, startT, 0);
+         if (chart_draw_times) {
+            name = StringFormat("TREND %d START %s", n, TimeToString(startT)); // FIXME use formatted strings
+            ObjectCreate(id,name, OBJ_VLINE, 0, startT, 0);
+         }
       }
       
       endT = trends[n].endTime;
       endP = trends[n].endRate;
       if (endT != 0 && endP != 0) {
          end = true;
-         name = StringFormat("TREND %d END %s", n, TimeToString(endT));
-         ObjectCreate(id,name, OBJ_VLINE, 0, endT, 0);
+      //// redundant
+      // name = StringFormat("TREND %d END %s", n, TimeToString(endT));
+      // ObjectCreate(id,name, OBJ_VLINE, 0, endT, 0);
       }
       
       if(start && end) {
