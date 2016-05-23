@@ -242,13 +242,31 @@ int calcTrends(const int count,
       // apply a simple high/low calculation for logical dispatch to trend filtering
       rate = calcMax ? high[n] : low[n];
       if (calcMax && (rate > pRate)) {
-      // continuing trend rate > pRate > sRate
+      // continuing trend rate > pRate > sRate - simple calc
+         logDebug(StringFormat("Simple calcMax %f [%d]", rate, n));
          pRate = rate;
          pTick = n;
       } else if (!calcMax && (rate <= pRate)) {
-      // continuing trend rate <= pRate <= sRate
+      // continuing trend rate <= pRate <= sRate - simple calc
+         logDebug(StringFormat("Simple !calcMax %f [%d]", rate, n));
          pRate = rate;
          pTick = n;
+      } else if (!calcMax && (sTrend != NULL) && (high[n] > sTrend.startRate)) {
+      // do not log as revesal. invert the traversal logic. udpate sRate, sTrend
+         pRate = high[n];
+         pTick = n;
+         calcMax = true;
+         logDebug(StringFormat("Invert !calcMax rate %f => %f [%d] %s", rate, pRate, n, TimeToString(time[n])));
+         sRate = low[sTick];
+         sTrend.startRate = sRate;
+      } else if (calcMax && (sTrend != NULL) && (low[n] <= sTrend.startRate)) {
+      // do not log as reversal. invert the traversal logic. udpate sRate, sTrend
+         pRate = low[n];
+         pTick = n;
+         calcMax = false;
+         sRate = high[sTick];
+         sTrend.startRate = sRate;
+         logDebug(StringFormat("Invert calcMax rate %f => %f [%d] %s", rate, pRate, n, TimeToString(time[n])));
       } /* else if ((n - sTick) < min_trend_period) {
       // disregard any intermediate trend reversal. 
       // udpate rate, tick information
@@ -256,24 +274,27 @@ int calcTrends(const int count,
          pTick = n;      
       } */ else { 
       // trend interrupted
-         logDebug(StringFormat("Record Trend (%d,  %f) => (%d, %f) [tick %d]", time[sTick], sRate, time[pTick], pRate, n));
+         logDebug(StringFormat("Record Trend (%f @ %s) => (%f @ %s) [tick %d]", pRate, TimeToString(time[pTick]), sRate, TimeToString(time[sTick]), n));
          sTrend = new Trend(time[pTick], pRate, time[sTick], sRate);
          trends[nrTrends++] = sTrend;
          logDebug(StringFormat("New number of trends: %d", nrTrends));
 
+         //
+         // FIXME: Logic for calculations following event of reversal detection
+         // also, whether or not to set pRate, pTick in the previous two program branches
+         //
          calcMax = (pRate <= sRate); // set for traversing reversal of previous trend
-         sRate = pRate;
-         pRate = calcMax ? calcRateHHL(high[n], low[n]) : calcRateHLL(high[n], low[n]);
-         // pRate = calcMax ? high[n] : low[n];
+         sRate = calcMax ? low[pTick] : high[pTick];
+         pRate = calcMax ? high[n] : low[n];
          sTick = pTick;
          pTick = n;
-         logDebug(StringFormat("New calcMax %s, pRate %d, sRate %d", (calcMax? "true" : "false"), pRate, sRate));
+         logDebug(StringFormat("New calcMax %s, pRate %f, sRate %f [%d:%d]", (calcMax? "true" : "false"), pRate, sRate, sTick, pTick));
       } 
-   }
+   }  
    
    if (sTrend != NULL) { // nrTrends != 0
       // final (series-first) trend
-      logDebug(StringFormat("Last Trend (%d,  %f) => (%d, %f)", time[sTick], sRate, time[n], pRate));
+      logDebug(StringFormat("Last Trend (%f @ %s) => (%f @ %s)", sRate, TimeToString(time[sTick]), pRate, TimeToString(time[n])));
       pRate = calcMax ? calcRateHHL(high[n], low[n]) : calcRateHLL(high[n], low[n]);
       // pRate = calcMax ? high[n] : low[n];
       sTrend = new Trend(time[n], pRate, time[sTick], sRate);
@@ -295,7 +316,7 @@ void drawTrendsForS(const long id, const Trend* &trends[], const int count) {
       startP = trends[n].startRate;
       if (startT != 0 && startP != 0) {
          start = true;
-         name = "TREND START " + startT + " " + MathRand(); // FIXME use formatted strings
+         name = StringFormat("TREND %d START %s", n, TimeToString(startT)); // FIXME use formatted strings
          ObjectCreate(id,name, OBJ_VLINE, 0, startT, 0);
       }
       
@@ -303,12 +324,12 @@ void drawTrendsForS(const long id, const Trend* &trends[], const int count) {
       endP = trends[n].endRate;
       if (endT != 0 && endP != 0) {
          end = true;
-         name = "TREND END " + endT + " " + MathRand(); // FIXME use formatted strings
+         name = StringFormat("TREND %d END %s", n, TimeToString(endT));
          ObjectCreate(id,name, OBJ_VLINE, 0, endT, 0);
       }
       
       if(start && end) {
-         name = "TREND LINE " + MathRand(); // FIXME use formatted strings
+         name = StringFormat("TREND %d LINE [%s .. %s ]", n, TimeToString(startT), TimeToString(endT));
          ObjectCreate(id, name, OBJ_TREND, 0, startT, startP, endT, endP);
          ObjectSetInteger(id,name,OBJPROP_RAY_RIGHT,false);
          ObjectSetInteger(id,name,OBJPROP_COLOR,clrLime); // FIME: MAKE PROPERTY
@@ -324,6 +345,7 @@ void drawTrendsForS(const long id, const Trend* &trends[], const int count) {
 void OnStart() {
    // run program in script mode (DEBUG)
    
+   
    // DEBUG
    // logDebug("Clear Objects");
    // ObjectsDeleteAll(0,-1);
@@ -336,11 +358,14 @@ void OnStart() {
    int first = 0;
    // int maxTrends = MathCeil(count / min_trend_period); // FIXME: maxTrends calculation
    int maxTrends = count;
-   // FIXME: Log message not printed
+   // FIXME: Log messages not printed ??
    logDebug(StringFormat("First %d, Count: %d, Maximum nr. trends: %d", first, count, maxTrends));
+   logDebug(StringFormat("Duration: [%s]..[%s}", TimeToString(Time[count]), TimeToString(Time[first])));
    
    Trend *trends[];
-   ArrayResize(trends, maxTrends, 0); // FIXME: Is this flummoxing things?
+   ArrayResize(trends, maxTrends, 0);
+   ArraySetAsSeries(trends, false); // NB: MUST call this - it has odd worse effects to not
+   
    
    // This script will use buffered Open, High, Low, Close, Time instead of CopyRates(...)
    // see also: OnCalculate(), RefreshRates()
