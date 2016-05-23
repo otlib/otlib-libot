@@ -41,7 +41,6 @@
 input int   a_period_init=5; // e.g STO//D, STO//SLOWING
 input int   b_period_init=15; // e.g STO//K, CCI PERIOD, FISHER PERIOD
 input int   c_period_init=10; // e.g LWMA period
-input int   min_trend_period = 3; // minimum number of clock ticks for trend calculation
 input bool  log_debug = true; // print initial runtime information to Experts log
 
 // OTLIB
@@ -223,6 +222,7 @@ int calcTrends(const int count,
 
    int sTick, pTick, nrTrends;
    double rate, sRate, pRate;
+   bool updsTrend = false;
    
    Trend* sTrend = NULL;
 
@@ -241,49 +241,80 @@ int calcTrends(const int count,
       // rate = calcMax ? calcRateHHL(high[n], low[n]) : calcRateHLL(high[n], low[n]);
       // apply a simple high/low calculation for logical dispatch to trend filtering
       rate = calcMax ? high[n] : low[n];
-      if (calcMax && (rate > pRate)) {
-      // continuing trend rate > pRate > sRate - simple calc
+      if (calcMax && (rate >= pRate)) {
+      // continuing trend rate > pRate - simple calc
          logDebug(StringFormat("Simple calcMax %f [%d]", rate, n));
+         if(updsTrend) {
+            sRate = rate;
+            sTick = n;
+            sTrend.startRate = rate;
+            sTrend.startTime = time[n];
+         }
          pRate = rate;
          pTick = n;
       } else if (!calcMax && (rate <= pRate)) {
-      // continuing trend rate <= pRate <= sRate - simple calc
+      // continuing trend rate <= pRate - simple calc
          logDebug(StringFormat("Simple !calcMax %f [%d]", rate, n));
+         if(updsTrend) {
+            sRate = rate;
+            sTick = n;
+            sTrend.startRate = rate;
+            sTrend.startTime = time[n];
+         }
          pRate = rate;
          pTick = n;
-      } else if (!calcMax && (sTrend != NULL) && (high[n] > sTrend.startRate)) {
-      // do not log as revesal. invert the traversal logic. udpate sRate, sTrend
+      } else if (!calcMax && !updsTrend &&
+                  (sTrend != NULL) && 
+                  (high[n] >= sTrend.startRate) &&
+                  (sTrend.startRate > sTrend.endRate)) {
+      // high.n >= sTrend.startRate > sTrend.endRate
+      // i.e trend now develops in parallel with sStrend - no longer traversing a reversal.
+      // do not log as reversal. invert the traversal logic. udpate pRate, sRate, sTrend
          pRate = high[n];
-         pTick = n;
          calcMax = true;
-         logDebug(StringFormat("Invert !calcMax rate %f => %f [%d] %s", rate, pRate, n, TimeToString(time[n])));
-         sRate = low[sTick];
+         sRate = pRate;
          sTrend.startRate = sRate;
-      } else if (calcMax && (sTrend != NULL) && (low[n] <= sTrend.startRate)) {
-      // do not log as reversal. invert the traversal logic. udpate sRate, sTrend
-         pRate = low[n];
+         sTrend.startTime=time[n];
+         sTick = n;
          pTick = n;
+         logDebug(StringFormat("Invert !calcMax rate %f => %f [%d] %s", rate, pRate, n, TimeToString(time[n])));
+         updsTrend = true;
+      } else if (calcMax && !updsTrend &&
+                  (sTrend != NULL) && 
+                  (low[n] <= sTrend.startRate) &&
+                  (sTrend.startRate <= sTrend.endRate)) {
+      // low.n <= sTrend.startRate <= sTrend.endRate
+      // i.e trend now develops in parallel with sStrend - no longer traversing a reversal.
+      // do not log as reversal. invert the traversal logic. udpate pRate, sRate, sTrend
+         pRate = low[n];
          calcMax = false;
-         sRate = high[sTick];
+         sRate = pRate;
          sTrend.startRate = sRate;
+         sTrend.startTime=time[n];
+         sTick = n;
+         pTick = n;
          logDebug(StringFormat("Invert calcMax rate %f => %f [%d] %s", rate, pRate, n, TimeToString(time[n])));
-      } /* else if ((n - sTick) < min_trend_period) {
-      // disregard any intermediate trend reversal. 
-      // udpate rate, tick information
-         pRate = rate;
-         pTick = n;      
-      } */ else { 
+         // FIXME: sTrend will not be further updated, past this branch of exec
+         updsTrend = true;
+      } else { 
       // trend interrupted
-         logDebug(StringFormat("Record Trend (%f @ %s) => (%f @ %s) [tick %d]", pRate, TimeToString(time[pTick]), sRate, TimeToString(time[sTick]), n));
-         sTrend = new Trend(time[pTick], pRate, time[sTick], sRate);
-         trends[nrTrends++] = sTrend;
-         logDebug(StringFormat("New number of trends: %d", nrTrends));
-
+         if(!updsTrend) {
+          // do not create new sTrend for intemediate log data
+            logDebug(StringFormat("Record Trend (%f @ %s) => (%f @ %s) [%d]", pRate, TimeToString(time[pTick]), sRate, TimeToString(time[sTick]), n));
+            sTrend = new Trend(time[pTick], pRate, time[sTick], sRate);
+            trends[nrTrends++] = sTrend;
+            logDebug(StringFormat("New number of trends: %d", nrTrends));
+         }  else {
+          // defer trend initializtion, previous sTrend updated
+            logDebug(StringFormat("End sTrend update (%f @ %s)[%d]", sTrend.startRate, TimeToString(sTrend.startTime), n));
+            updsTrend = false;
+         }
+   
          //
          // FIXME: Logic for calculations following event of reversal detection
          // also, whether or not to set pRate, pTick in the previous two program branches
          //
-         calcMax = (pRate <= sRate); // set for traversing reversal of previous trend
+         calcMax = (sTrend.startRate <= sTrend.endRate); // set for traversing reversal of previous trend
          sRate = calcMax ? low[pTick] : high[pTick];
          pRate = calcMax ? high[n] : low[n];
          sTick = pTick;
@@ -364,7 +395,7 @@ void OnStart() {
    
    Trend *trends[];
    ArrayResize(trends, maxTrends, 0);
-   ArraySetAsSeries(trends, false); // NB: MUST call this - it has odd worse effects to not
+   ArraySetAsSeries(trends, true); // NB: MUST call this - it has odd worse effects to not
    
    
    // This script will use buffered Open, High, Low, Close, Time instead of CopyRates(...)
