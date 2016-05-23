@@ -253,34 +253,18 @@ int calcTrends(const int count,
          pRate = rate;
          pTick = n;      
       } */ else { 
-      // trend interrupted ?
-      
-/*         if ( (sTrend != NULL) &&
-                ((calcMax && (pRate > sTrend.startRate)) ||
-                 (!calcMax && (pRate  <= sTrend.startRate))
-                )
-              ) {
-               // not actually a reversal - no Trend record to create
-               // pRate = rate;
-               // pTick = n;
-               
-               logDebug(StringFormat("Skip rate %f, tick %d [calcMax = %s] ", rate, n, (calcMax? "true" : "false")));
+      // trend interrupted
+         logDebug(StringFormat("Record Trend (%d,  %f) => (%d, %f) [tick %d]", time[sTick], sRate, time[pTick], pRate, n));
+         sTrend = new Trend(time[pTick], pRate, time[sTick], sRate);
+         trends[nrTrends++] = sTrend;
+         logDebug(StringFormat("New number of trends: %d", nrTrends));
 
-
-             } else {
-             */
-               logDebug(StringFormat("Record Trend (%d,  %f) => (%d, %f) [tick %d]", time[sTick], sRate, time[pTick], pRate, n));
-               sTrend = new Trend(time[pTick], pRate, time[sTick], sRate);
-               trends[nrTrends++] = sTrend;
-               logDebug(StringFormat("New number of trends: %d", nrTrends));
-
-               calcMax = (pRate <= sRate); // set for traversing reversal of previous trend
-               sRate = pRate;
-               pRate = calcMax ? calcRateHHL(high[n], low[n]) : calcRateHLL(high[n], low[n]);
-               sTick = pTick;
-               pTick = n;
-               logDebug(StringFormat("New calcMax %s, pRate %d, sRate %d", (calcMax? "true" : "false"), pRate, sRate));
-           /* } */
+         calcMax = (pRate <= sRate); // set for traversing reversal of previous trend
+         sRate = pRate;
+         pRate = calcMax ? calcRateHHL(high[n], low[n]) : calcRateHLL(high[n], low[n]);
+         sTick = pTick;
+         pTick = n;
+         logDebug(StringFormat("New calcMax %s, pRate %d, sRate %d", (calcMax? "true" : "false"), pRate, sRate));
       } 
    }
    
