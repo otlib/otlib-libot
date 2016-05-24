@@ -313,7 +313,11 @@ int OnCalculate(const int count,
                 
    const int first = 0;
    const int maxTrends = (count - first) / 2;
-   ArrayResize(trends, maxTrends, 0);
+   ArrayResize(trends, maxTrends, 0); // FIXME remove
+   ArrayResize(TrendStrR, maxTrends, 0);
+   ArrayResize(TrendStrT, maxTrends, 0);
+   ArrayResize(TrendEndR, maxTrends, 0);
+   ArrayResize(TrendEndT, maxTrends, 0);
    
    const int nrTrends = 0;
    
