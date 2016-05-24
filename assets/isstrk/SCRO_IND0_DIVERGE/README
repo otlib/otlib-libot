@@ -1,0 +1,23 @@
+Issue: SCRO_IND0_DIVERGE                        -*- text -*-
+
+* Synopsis:
+
+Market rate trend calculation diverges between calculations produced
+with calcTrends in SCR0 and calcTrends() in IND0. The mechanical logic
+implemeted of the two functions is not different, at this time.
+
+The divergence is illustrated in the file GBPUSDiM1.png
+
+* Proposed Resolution:
+
+Observe whether the same market rate data is being provided to an
+MQL4 Script type program - there, in the respective Open, High, Low,
+Close,  and Time buffers in the global namespace of the Script type
+program - whether it may be the same data as is provided to an MQL4
+Indicator type program, there in the time, open, high, low, and close
+parameters to `OnCalculate`.
+
+
+* Footnotes:
+
+Charts created with MetaTrader 4
