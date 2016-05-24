@@ -41,7 +41,7 @@
 
 * [Open Trading Toolkit - libot Wiki][libot-wiki]
 * [Open Trading Toolkit - Documentation Library][otlib-doc]
-* [Open Trading Toolkit - Project Web Resources}[otlib-site]
+* [Open Trading Toolkit - Project Web Resources][otlib-site]
 
 # Copyright
 
@@ -76,4 +76,4 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 [libot]: https://github.com/otlib/otlib-libot "Open Trading Toolkit - Open Trading Library"
 [libot-wiki]: https://github.com/otlib/otlib-libot/wiki "Open Trading Toolkit - libot wiki"
 [otlib-doc]: https://github.com/otlib/otlib-doc "Open Trading Toolkit - Documentation Library"
-[otlib-site}: https://github.com/otlib/otlib.github.io "Open Trading Toolkit - Project Web Resources"
+[otlib-site]: https://github.com/otlib/otlib.github.io "Open Trading Toolkit - Project Web Resources"
