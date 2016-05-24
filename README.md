@@ -41,7 +41,7 @@
 
 * [Open Trading Toolkit - libot Wiki][libot-wiki]
 * [Open Trading Toolkit - Documentation Library][otlib-doc]
-* [Open Trading Toolkit - Project Web Resources}[otlib-site]
+* [Open Trading Toolkit - Project Web Resources][otlib-site]
 
 # Copyright
 
