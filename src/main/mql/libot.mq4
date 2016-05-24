@@ -47,7 +47,7 @@ int errorNotify(const string message) {
    return MessageBox(message,"Error",MB_OKCANCEL);
 }
 
-void logDebug(const string message) { 
+void logDebug(const string message, bool log_debug=true) { 
    // FIXME: Reimplement w/ a reusable preprocessor macro, optimizing the call pattern for this fn
    if (log_debug) {
       Print(message);

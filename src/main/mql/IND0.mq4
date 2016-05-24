@@ -35,6 +35,11 @@
 #property strict
 #property script_show_inputs
 
+#import "libot.ex4"
+   void logDebug(string message);
+   double calcRateHAC(double open, double high, double low, double close);
+#import
+
 
 input int   a_period_init=5; // e.g STO//D, STO//SLOWING
 input int   b_period_init=15; // e.g STO//K, CCI PERIOD, FISHER PERIOD
@@ -205,7 +210,7 @@ int calcTrends(const int count,
    if (sTrend != NULL) { // nrTrends != 0
       // final (series-first) trend
       logDebug(StringFormat("Last Trend (%f @ %s) => (%f @ %s)", sRate, TimeToString(time[sTick]), pRate, TimeToString(time[n])));
-      pRate = calcMax ? calcRateHHL(high[n], low[n]) : calcRateHLL(high[n], low[n]);
+      pRate = calcMax ? high[n]: low[n];
       // pRate = calcMax ? high[n] : low[n];
       sTrend = new Trend(time[n], pRate, time[sTick], sRate);
       trends[nrTrends++] = sTrend;
@@ -289,35 +294,3 @@ void OnStart() {
    ExpertRemove(); // DEBUG
    
 }
-
-/*
-
-int OnCalculate(const int rates_total,
-                const int prev_calculated,
-                const datetime &time[],
-                const double &open[],
-                const double &high[],
-                const double &low[],
-                const double &close[],
-                const long &tick_volume[],
-                const long &volume[],
-                const int &spread[]) {
-   // run program in indicator mode
-
-   // NB: ensure open, high, low, close, time all ArraySetAsSeries(it, true) - see also Time[] docu
-
-   initOHLC(false, open, high, low, close); // true ??  the documentation seems inconsistent
-
-   MessageBox("Visible : " + CHART_VISIBLE_BARS, "Notification", MB_OK); // DEBUG INFO
-   
-   string symbol = getCurrentSymbol();
-   Trend *last = calcTrendsForS(symbol,PERIOD_M1, 15, 0, open, high, low, close); // 15 instead of rates_total
-   MessageBox("Rate: " + DoubleToString(last.startRate),"Notification",MB_OK); // DEBUG INFO
-   
-   drawTrendsForS(symbol, last); // DEBUG INFO
-   
-   ExpertRemove(); // DEBUG
-   return 0; // DEBUG
-}
-
-*/
