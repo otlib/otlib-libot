@@ -10,16 +10,17 @@
 * `src/main/mql/libot.mq4`
     * **Platform:** MetaTrader 4
     * **Format:** MQL4
-    * **Synopsis:** Component functions library, Open Trading Toolkit
+    * **Synopsis:** Component functions library for MQL4 applications,
+      Open Trading Toolkit 
     * **History**
-        * Thise file originally contained the initial prototype for
-          otlib EA0
-        * Later renamed to SCR0.mq4
+        * This file originally contained the initial prototype for the
+          EA0 mechanical trading concept
+        * Later renamed to `SCR0.mq4`
         * Reusable functions from SCR0 have subsequently been
-          reproduced in the file libot.mq4
+          reproduced in the file `libot.mq4`
         * File subsequently updated with additional functions that may
           be reusable in individual MQL4 prorams, so far as accessible
-          via the MQL4 `import` preprocessor directive
+          via the MQL4 `#import` preprocessor directive
 
 * `src/main/mql/SCR0.mq4`
     * **Platform:** MetaTrader 4
@@ -52,18 +53,18 @@
     * **Description:**
 
       This program is representative of an adaptation of the SCR0
-      program onto the semantics of MetaTrader 4 Inicator types
+      program onto the semantics of MetaTrader 4 Indicator types
       programs. In adapting the SCR0 program for application as a
       MetaTrader 4 Indicator type program, a number of revisions have
       been produced onto the original SCR0 prototype. Mainly, data
       buffering in IND0 is produced onto a series of _time_ and _rate_
       buffers, rather than a single buffer of _Trend_ classes.
 
-      In order to provide data values for application with the
+      In order to provide data values for application onto the
       indicator's `DRAW_SECTION` buffer style, an additional buffer
       has been defined for maintaining synchronization between the
-      respective _data buffers_ and the indicator's single _drawn
-      buffer_.
+      respective _data buffers_ in the IND0 implementation and the
+      indicator's single _drawn buffer_.
 
     * **Known Issues**
         * **SCR0_IND0_DIVERGE**
@@ -78,8 +79,8 @@
               from data values produced in the original SCR0
               prototype. This issue is documented, albeit
               rudimentarily, in the filesystem directory 
-              `assets/isstrk/SCRO_IND0_DIVERGE/` in which the _lime
-              green_ indicator lines are produced with the SCR0
+              `assets/isstrk/SCRO_IND0_DIVERGE/` in which chart, the
+              _lime green_ indicator lines are produced with the SCR0
               implementation and the _aqua_ hued indicator lines are
               produced with the IND0 implementation. Notably, the IND0
               implementation is producing _drawn indicator_ data of a
