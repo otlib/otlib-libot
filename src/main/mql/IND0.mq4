@@ -318,11 +318,13 @@ int OnCalculate(const int count,
    ArrayResize(TrendStrT, maxTrends, 0);
    ArrayResize(TrendEndR, maxTrends, 0);
    ArrayResize(TrendEndT, maxTrends, 0);
+   logDebug(StringFormat("Count %d, Counted %d, maxTrends %d", count, counted, maxTrends));
    
    const int nrTrends = 0;
    
-   // nrTrends = calcTrends(count, first, trends, open, high, low, close, time);
+   // nrTrends = calcTrends(count, counted, trends, open, high, low, close, time);
    // ^ FIXME: redefine calcTrends for Trend{Str|End}{R|T} and apply here
+   // logDebug(StringFormat("calcTrends nrTrends %d", nrTrends));
    
    // drawTrends(...)
    
