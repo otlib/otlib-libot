@@ -287,7 +287,7 @@ void OnStart() {
    int count = WindowFirstVisibleBar();
    int first = 0;
    // int maxTrends = MathCeil(count / min_trend_period); // FIXME: maxTrends calculation
-   int maxTrends = count;
+   int maxTrends = count / 2;
    // FIXME: Log messages not printed ??
    logDebug(StringFormat("First %d, Count: %d, Maximum nr. trends: %d", first, count, maxTrends));
    logDebug(StringFormat("Duration: [%s]..[%s}", TimeToString(Time[count]), TimeToString(Time[first])));
@@ -295,8 +295,7 @@ void OnStart() {
    Trend *trends[];
    ArrayResize(trends, maxTrends, 0);
    ArraySetAsSeries(trends, true); // NB: MUST call this - it has odd worse effects to not
-   
-   
+
    // This script will use buffered Open, High, Low, Close, Time instead of CopyRates(...)
    // see also: OnCalculate(), RefreshRates()
    const int nrTrends = calcTrends(count, first, trends, Open, High, Low, Close, Time); // 15 instead of rates_total
