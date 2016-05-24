@@ -104,7 +104,7 @@ double getChange(const Trend &trend) {
    return (trend.endRate - trend.startRate);
 }
 
-Trend trends[]; // FIXME: Remove
+Trend *trends[]; // FIXME: Remove
 
 // NB: see also SymbolInfoTick()
 
@@ -115,7 +115,6 @@ Trend trends[]; // FIXME: Remove
 
 int calcTrends(const int count, 
                   const int start, 
-                  Trend* &trends[], // FIXME: define as a four-slot indicator buffer arrangement
                   const double &open[],
                   const double &high[],
                   const double &low[],
@@ -147,7 +146,6 @@ int calcTrends(const int count,
    int n;
    
    for(n=start+1; n < count; n++) {
-      // rate = calcMax ? calcRateHHL(high[n], low[n]) : calcRateHLL(high[n], low[n]);
       // apply a simple high/low calculation for logical dispatch to trend filtering
       rate = calcMax ? high[n] : low[n];
       if (calcMax && (rate >= pRate)) {
@@ -219,10 +217,6 @@ int calcTrends(const int count,
             updsTrend = false;
          }
    
-         //
-         // FIXME: Logic for calculations following event of reversal detection
-         // also, whether or not to set pRate, pTick in the previous two program branches
-         //
          calcMax = (sTrend.startRate <= sTrend.endRate); // set for traversing reversal of previous trend
          sRate = calcMax ? low[pTick] : high[pTick];
          pRate = calcMax ? high[n] : low[n];
@@ -236,7 +230,6 @@ int calcTrends(const int count,
       // final (series-first) trend
       logDebug(StringFormat("Last Trend (%f @ %s) => (%f @ %s)", sRate, TimeToString(time[sTick]), pRate, TimeToString(time[n])));
       pRate = calcMax ? high[n]: low[n];
-      // pRate = calcMax ? high[n] : low[n];
       sTrend = new Trend(time[n], pRate, time[sTick], sRate);
       trends[nrTrends++] = sTrend;
    }
