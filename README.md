@@ -1,5 +1,5 @@
-[[otlib-libot][1]] - Open Trading Toolkit libot
-===============================================
+[[otlib-libot][1]] Open Trading Toolkit libot
+=============================================
 
 # Description
 
