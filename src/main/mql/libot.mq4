@@ -36,18 +36,18 @@
 
 // - curency pairs
 
-string getCurrentSymbol() {
+string getCurrentSymbol() export {
    return ChartSymbol(0);
 }
 
 // - interactive messaging 
 
-int errorNotify(const string message) {
+int errorNotify(const string message) export {
    Print(message);
    return MessageBox(message,"Error",MB_OKCANCEL);
 }
 
-void logDebug(const string message, bool log_debug=true) { 
+void logDebug(const string message, bool log_debug=true) export { 
    // FIXME: Reimplement w/ a reusable preprocessor macro, optimizing the call pattern for this fn
    if (log_debug) {
       Print(message);
@@ -61,13 +61,13 @@ void logDebug(const string message, bool log_debug=true) {
 // See also: SymbolInfoDouble(Symbol(),SYMBOL_{ASK|BID});
 
 
-double getAskP(){ // market ask price, current chart and symbol
+double getAskP() export { // market ask price, current chart and symbol
    string symbol = getCurrentSymbol();
    return getAskPForS(symbol);
 }
 
 
-double getAskPForC(const long id){ 
+double getAskPForC(const long id) export { 
    // return ask price for chart with specified chart ID. 
    // ID 0 indicates current chart
    string symbol = ChartSymbol(id);
@@ -75,18 +75,18 @@ double getAskPForC(const long id){
 }
 
 
-double getAskPForS(const string symbol){
+double getAskPForS(const string symbol) export {
    return MarketInfo(symbol,MODE_ASK);
 }
 
 
-double getOfferP(){ // market offer price, i.e bid price
+double getOfferP() export { // market offer price, i.e bid price
    string symbol = getCurrentSymbol();
    return getOfferPForS(symbol);
 }
 
 
-double getOfferPForC(const long id){ 
+double getOfferPForC(const long id) export { 
    // return offer price for chart with specified chart ID. 
    // ID 0 indicates current chart
    string symbol = ChartSymbol(id);
@@ -94,32 +94,35 @@ double getOfferPForC(const long id){
 }
 
 
-double getOfferPForS(const string symbol){
+double getOfferPForS(const string symbol) export {
    return MarketInfo(symbol,MODE_BID);
 }
 
 
-double getSpread() { // diference of ask and offer price
+double getSpread() export { // diference of ask and offer price
    string symbol = getCurrentSymbol();
    return getSpreadForS(symbol);
 }
 
 
-double getSpreadForC(const long id){ 
+double getSpreadForC(const long id) export { 
    // return market spread for chart with specified chart ID. 
    // ID 0 indicates current chart
    string symbol = ChartSymbol(id);
    return getSpreadForS(symbol);
 }
 
-double getSpreadForS(const string symbol) {
+double getSpreadForS(const string symbol) export {
    double ask = getAskPForS(symbol);
    double offer = getOfferPForS(symbol);
    return ask - offer;
 }
 
 
-double calcRateHAC(const double open, const double high, const double low, const double close) {
+double calcRateHAC(const double open, 
+                   const double high, 
+                   const double low, 
+                   const double close) export {
    // calculate rate in a manner of Heikin Ashi Close
    double value = ( open + high + low + close ) / 4;
    return value;
