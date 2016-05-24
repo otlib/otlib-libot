@@ -30,16 +30,13 @@
  
 #property copyright "Sean Champ"
 #property link      "http://onename.com/spchamp"
-#property description "IND0"
+#property description "Script SCR0, Open Trading Toolkit"
 #property version   "1.00"
 #property strict
 #property script_show_inputs
 
-input int   a_period_init=5; // e.g STO//D, STO//SLOWING
-input int   b_period_init=15; // e.g STO//K, CCI PERIOD, FISHER PERIOD
-input int   c_period_init=10; // e.g LWMA period
 input bool  log_debug = true; // print initial runtime information to Experts log
-input bool  chart_draw_times = false; // draw trend duration times
+input bool  chart_draw_times = false; // draw additional indicators of trend duration
 
 double calcRateHAC(const double open, 
                    const double high, 
