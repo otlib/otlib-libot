@@ -37,13 +37,44 @@
 #property indicator_buffers 1 // number of drawn buffers
 #property indicator_color1 clrLimeGreen  // line color, EA0 buffer 0(1)
 
+// FIXME: message "libot is not loaded" ??
+// #import "libot"
+//   int dayStartOffL();
+// #import
+
+
+int dayStartOffT(const datetime dt) export {
+// return iBarShift for datetime dt
+// using current chart and curren timeframe
+   return iBarShift(NULL, 0, dt, false);
+}
+
+int dayStartOffL() export {
+// return iBarShift for datetime at start of day, local time
+// using current chart and curren timeframe
+   MqlDateTime st;
+   st.year = Year();
+   st.mon = Month();
+   st.day = Day();
+   st.day_of_week = DayOfWeek();
+   st.day_of_year = DayOfYear();
+   st.hour = 0;
+   st.min = 0;
+   st.sec = 0;
+   st.day_of_week = 1;
+   datetime dt = StructToTime(st);
+   // FIXME: Compute offset btw server local time and dt as provided here
+   return dayStartOffT(dt);
+}
+
+
 
 // NB: On estimation, the EA configuration wizard may 
 // automaticallly present line width and line style options 
 // for each drawn buffer (??)
 
 // - Input Parameters
-input bool log_debug = true; // print initial runtime information to Experts log
+input bool log_debug = false; // print initial runtime information to Experts log
 
 // - Program Parameters
 const string label   = "IND0";
@@ -101,8 +132,8 @@ void setTrend(const int tidx, // trend number
               const double strR,   // trend start rate
               const datetime endT, 
               const double endR) {
-   TrendSTick[tidx] = cidx;
    TrendDraw[cidx] = strR;
+   TrendSTick[tidx] = cidx;
    
    TrendStrT[tidx] = strT;
    TrendStrR[tidx] = strR;
@@ -116,8 +147,8 @@ void setTrendStart(const int tidx, // trend number
                    const double rate) {
 // NB: This function is applied in historic data analysis
 // NB: This function does not update TrendDraw for any previously specified cidx
-   TrendSTick[tidx] = cidx;
    TrendDraw[cidx] = rate;
+   TrendSTick[tidx] = cidx;
 
    TrendStrT[tidx] = time;
    TrendStrR[tidx] = rate;
@@ -250,7 +281,7 @@ int calcTrends(const int count,
             TrendDraw[sTick] = sRate; // explicit TrendDraw data spec
          }  else {
           // defer trend initializtion, previous sTrend updated
-            logDebug(StringFormat("End sTrend update (%f @ %s)[%d]", TrendStrR[nrTrends], TimeToString(TrendStrT[nrTrends]), n));
+            logDebug(StringFormat("End sTrend %d update (%f @ %s)[%d]", nrTrends, TrendStrR[nrTrends], TimeToString(TrendStrT[nrTrends]), n));
             updsTrend = false;
             TrendDraw[n] = dblz; // store zero value for drawn buffer 
          }
@@ -265,6 +296,7 @@ int calcTrends(const int count,
    }  
    
    if (nrTrends > 0) {
+      n--;
       // update last (chronologically first) trend record
       logDebug(StringFormat("Last Trend (%f @ %s) => (%f @ %s)", sRate, TimeToString(time[sTick]), pRate, TimeToString(time[n])));
       pRate = calcMax ? high[n]: low[n];
@@ -288,14 +320,16 @@ void OnInit() {
    ArraySetAsSeries(TrendEndR, true);
    ArraySetAsSeries(TrendEndT, true);
    
-   IndicatorBuffers(5); // Prototype 1: No separate buffer for indicator lines
+   IndicatorBuffers(6); // Prototype 1: No separate buffer for indicator lines
    // NB: SetIndexBuffer may <not> accept a buffer of class type elements
    SetIndexBuffer(0, TrendDraw); // NB: Stored for every chart tick
-   SetIndexBuffer(0, TrendSTick); // NB: Not Stored for every chart tick
-   SetIndexBuffer(1, TrendStrR); // NB: Not stored for every chart tick
-   SetIndexBuffer(2, TrendStrT); // NB: Not stored for every chart tick
-   SetIndexBuffer(3, TrendEndR); // NB: Not stored for every chart tick
-   SetIndexBuffer(4, TrendEndT); // NB: Not stored for every chart tick
+   SetIndexEmptyValue(0, dblz);
+
+   SetIndexBuffer(1, TrendSTick); // NB: Not Stored for every chart tick
+   SetIndexBuffer(2, TrendStrR); // NB: Not stored for every chart tick
+   SetIndexBuffer(3, TrendStrT); // NB: Not stored for every chart tick
+   SetIndexBuffer(4, TrendEndR); // NB: Not stored for every chart tick
+   SetIndexBuffer(5, TrendEndT); // NB: Not stored for every chart tick
    // SetIndexBuffer(4, SigStoK[]); // TBD - calcSto
    // SetIndexBuffer(5, SigStoM[]); // TBD - calcSto
    // SetIndexBuffer(6, SigAD[]);   // TBD - calcAD
@@ -319,14 +353,22 @@ int OnCalculate(const int count,
                 const long &tick_volume[],
                 const long &volume[],
                 const int &spread[]) {
-   int first, maxTrends;
+   int toCount, first, nrTrends, maxTrends;
    
    logDebug("OnCalculate called");
-                
+
    if(counted == 0) {
       first = 0;
-      maxTrends = count / 2;
-      ArrayResize(TrendDraw, count, 0);
+      toCount = dayStartOffL();
+      maxTrends = toCount; // greater than toCount / 2 ???
+      
+      // FIXME: This is a computatioally expensive program. 
+      // Reducig count to the difference between the 'current bar' and the bar at 'start of day' may be advisable.
+      
+      // TO DO? Multi-threading for advanced trend graphing onto entire chart history, 
+      //        at an iterative  duration of individual market days
+
+      ArrayResize(TrendDraw, count+1, 0);
       ArrayResize(TrendSTick, maxTrends, 0);
       ArrayResize(TrendStrR, maxTrends, 0);
       ArrayResize(TrendStrT, maxTrends, 0);
@@ -339,13 +381,15 @@ int OnCalculate(const int count,
       ArrayInitialize(TrendSTick, 0);
       ArrayInitialize(TrendStrT, 0);
       ArrayInitialize(TrendEndT, 0);
+      nrTrends = calcTrends(toCount, counted, open, high, low, close, time);
+      Print(StringFormat("calcTrends nrTrends %d", nrTrends));
    } else {
      // TBD: 'count' when indicator called in realtime update
+     Print("FIXME: Skip calcTrends for count != 0");
+     nrTrends = 0;
    }
    logDebug(StringFormat("Count %d, Counted %d, maxTrends %d", count, counted, maxTrends));
 
-   const int nrTrends = calcTrends(count, counted, open, high, low, close, time);
-   logDebug(StringFormat("calcTrends nrTrends %d", nrTrends));
    
    // FIXME: calcTrends is applied only for historic analysis. 
    //
