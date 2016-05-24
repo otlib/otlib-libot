@@ -1,4 +1,4 @@
-[[otlib-libot][1]] Open Trading Toolkit libot
+[[otlib-libot][libot]] Open Trading Toolkit libot
 =============================================
 
 # Description
@@ -35,7 +35,13 @@
         * `OnStart` function deletes all chart objects from the
           primary data window of the active chart
         * Utility developed for application in parallel to `libot.mq4`
-      
+
+
+**Correlated Projects**
+
+* [Open Trading Toolkit - libot Wiki][libot-wiki]
+* [Open Trading Toolkit - Documentation Library][otlib-doc]
+* [Open Trading Toolkit - Project Web Resources}[otlib-site]
 
 # Copyright
 
@@ -67,4 +73,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-[1]: https://github.com/otlib/otlib-libot "Open Trading Toolkit - Open Trading Library"
+[libot]: https://github.com/otlib/otlib-libot "Open Trading Toolkit - Open Trading Library"
+[libot-wiki]: https://github.com/otlib/otlib-libot/wiki "Open Trading Toolkit - libot wiki"
+[otlib-doc]: https://github.com/otlib/otlib-doc "Open Trading Toolkit - Documentation Library"
+[otlib-site}: https://github.com/otlib/otlib.github.io "Open Trading Toolkit - Project Web Resources"
