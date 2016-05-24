@@ -287,7 +287,7 @@ void OnStart() {
    int count = WindowFirstVisibleBar();
    int first = 0;
    // int maxTrends = MathCeil(count / min_trend_period); // FIXME: maxTrends calculation
-   int maxTrends = count / 2;
+   int maxTrends = (count - first) / 2;
    // FIXME: Log messages not printed ??
    logDebug(StringFormat("First %d, Count: %d, Maximum nr. trends: %d", first, count, maxTrends));
    logDebug(StringFormat("Duration: [%s]..[%s}", TimeToString(Time[count]), TimeToString(Time[first])));
