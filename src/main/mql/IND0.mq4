@@ -30,121 +30,18 @@
  
 #property copyright "Sean Champ"
 #property link      "http://onename.com/spchamp"
-#property description "OTLIB"
+#property description "IND0"
 #property version   "1.00"
 #property strict
 #property script_show_inputs
 
 
-
-//--- input parameters
 input int   a_period_init=5; // e.g STO//D, STO//SLOWING
 input int   b_period_init=15; // e.g STO//K, CCI PERIOD, FISHER PERIOD
 input int   c_period_init=10; // e.g LWMA period
 input bool  log_debug = true; // print initial runtime information to Experts log
 input bool  chart_draw_times = false; // draw trend duration times
 
-// OTLIB
-
-// - curency pairs
-
-string getCurrentSymbol() {
-   return ChartSymbol(0);
-}
-
-// - interactive messaging 
-
-int errorNotify(const string message) {
-   Print(message);
-   return MessageBox(message,"Error",MB_OKCANCEL);
-}
-
-void logDebug(const string message) { 
-   // FIXME: Reimplement w/ a reusable preprocessor macro, optimizing the call pattern for this fn
-   if (log_debug) {
-      Print(message);
-   }
-}
-
-/*
-int msgOkAbort(const string message) { // FIXME: REDESIGN THIS FN
-    Print(message);
-    int retv = IDOK; // NOT DEBUG BUILD
-    // DEBUG BUILD      
-    // int retv = MessageBox(message, "Notifiation", MB_OKCANCEL); // DEBUG BUILD
-    //   if (retv == IDCANCEL) {
-    //     ExpertRemove();
-    //   }
-   return retv;
-}
-*/
-
-// - charts
-
-// - market information
-
-// See also: SymbolInfoDouble(Symbol(),SYMBOL_{ASK|BID});
-
-
-double getAskP(){ // market ask price, current chart and symbol
-   string symbol = getCurrentSymbol();
-   return getAskPForS(symbol);
-}
-
-
-double getAskPForC(const long id){ 
-   // return ask price for chart with specified chart ID. 
-   // ID 0 indicates current chart
-   string symbol = ChartSymbol(id);
-   return getAskPForS(symbol);
-}
-
-
-double getAskPForS(const string symbol){
-   return MarketInfo(symbol,MODE_ASK);
-}
-
-
-double getOfferP(){ // market offer price, i.e bid price
-   string symbol = getCurrentSymbol();
-   return getOfferPForS(symbol);
-}
-
-
-double getOfferPForC(const long id){ 
-   // return offer price for chart with specified chart ID. 
-   // ID 0 indicates current chart
-   string symbol = ChartSymbol(id);
-   return getOfferPForS(symbol);
-}
-
-
-double getOfferPForS(const string symbol){
-   return MarketInfo(symbol,MODE_BID);
-}
-
-
-double getSpread() { // diference of ask and offer price
-   string symbol = getCurrentSymbol();
-   return getSpreadForS(symbol);
-}
-
-
-double getSpreadForC(const long id){ 
-   // return market spread for chart with specified chart ID. 
-   // ID 0 indicates current chart
-   string symbol = ChartSymbol(id);
-   return getSpreadForS(symbol);
-}
-
-
-double getSpreadForS(const string symbol) {
-   double ask = getAskPForS(symbol);
-   double offer = getOfferPForS(symbol);
-   return ask - offer;
-}
-
-// -- market performance data
 
 class Trend { // FIXME: separate this into four buffers, two of datetime[] and two of double[]
 public:
@@ -182,25 +79,6 @@ double getChange(const Trend &trend) {
    return (trend.endRate - trend.startRate);
 }
 
-
-double calcRateHAC(const double open, const double high, const double low, const double close) {
-   // calculate rate in a manner of Heikin Ashi Close
-   double value = ( open + high + low + close ) / 4;
-   return value;
-}
-
-double calcRateHHL(const double high, const double low) {
-   // calculate rate as (H + H + L) / 3
-   double value = ((high * 2) + low ) / 3;
-   return value;
-}
-
-
-double calcRateHLL(const double high, const double low) {
-   // calculate rate as (H + L + L) / 3
-   double value = ((low * 2) + high ) / 3;
-   return value;   
-}
 
 
 // NB: see also SymbolInfoTick()
