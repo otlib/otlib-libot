@@ -10,14 +10,24 @@
 * `src/main/mql/libot.mq4`
     * **Platform:** MetaTrader 4
     * **Format:** MQL4
-    * **Synopsis:**
+    * **Synopsis:** Component functions library, Open Trading Toolkit
     * **History**
-        * Initial Prototype for otlib EA0
+        * Thise file originally contained the initial prototype for
+          otlib EA0
         * Later renamed to SCR0.mq4
-        * Reusable functions from SCR0 subsequently reproduced in
-          file libot.mq4
+        * Reusable functions from SCR0 have subsequently been
+          reproduced in the file libot.mq4
         * File subsequently updated with additional functions that may
-          be reusable in individual MQL4 prorams
+          be reusable in individual MQL4 prorams, so far as accessible
+          via the MQL4 `import` preprocessor directive
+
+* `src/main/mql/SCR0.mq4`
+    * **Platform:** MetaTrader 4
+    * **Format:** MQL4
+    * **Synopsis:** Initial prototype of EA0 concept in application as
+      a Metatrader 4 Script type program
+    * **Description**: This program represents the canonical prototype
+      of the EA0 concept, at this time.
     * **Description**
         * Goal (EA0): Market Trend Detection and Trend Reversal Detection
             * Analysis onto _affine space_ of market {time, rate} data
@@ -33,14 +43,6 @@
         * Provides visual indicator of analysis
         * Program parameter `log_debug` provides control over printing
           of program debug messages to MetaTrader _Experts_ log
-
-* `src/main/mql/SCR0.mq4`
-    * **Platform:** MetaTrader 4
-    * **Format:** MQL4
-    * **Synopsis:** Initial prototype of EA0 concept in application as
-      a Metatrader 4 Script type program
-    * **Description**: This program represents the canonical prototype
-      of the EA0 concept, at this time.
 
 * `src/main/mql/IND0.mq4`
     * **Platform:** MetaTrader 4
