@@ -42,17 +42,13 @@ string getCurrentSymbol() export {
 
 // - interactive messaging 
 
+/* 
 int errorNotify(const string message) export {
    Print(message);
    return MessageBox(message,"Error",MB_OKCANCEL);
 }
+*/
 
-void logDebug(const string message, bool log_debug=true) export { 
-   // FIXME: Reimplement w/ a reusable preprocessor macro, optimizing the call pattern for this fn
-   if (log_debug) {
-      Print(message);
-   }
-}
 
 // - charts
 
@@ -117,14 +113,3 @@ double getSpreadForS(const string symbol) export {
    double offer = getOfferPForS(symbol);
    return ask - offer;
 }
-
-
-double calcRateHAC(const double open, 
-                   const double high, 
-                   const double low, 
-                   const double close) export {
-   // calculate rate in a manner of Heikin Ashi Close
-   double value = ( open + high + low + close ) / 4;
-   return value;
-}
-
