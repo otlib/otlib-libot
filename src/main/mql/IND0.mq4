@@ -34,15 +34,26 @@
 #property version   "1.00"
 #property strict
 #property script_show_inputs
+#property indicator_buffers 1 // number of drawn buffers
+#property indicator_color1 clrLimeGreen  // line color, EA0 buffer 0(1)
+
+
+// NB: On estimation, the EA configuration wizard may 
+// automaticallly present line width and line style options 
+// for each drawn buffer (??)
 
 // - Input Parameters
-input bool  log_debug = true; // print initial runtime information to Experts log
+input bool log_debug = true; // print initial runtime information to Experts log
+
+// - Program Parameters
+const string label   = "IND0";
+
 
 // - Buffers
-double TrendStrR[]; // Trend Start Rate - calcTrends()
-double TrendStrT[]; // Trend Start Time - calcTrends()
-double TrendEndR[]; // Trend End Rate   - calcTrends()
-double TrendEndT[]; // Trend End Time   - calcTrends()
+double TrendStrR[]; // Trend Start Rate - calcTrends(), updTrends()
+double TrendStrT[]; // Trend Start Time - calcTrends(), updTrends()
+double TrendEndR[]; // Trend End Rate   - calcTrends(), updTrends()
+double TrendEndT[]; // Trend End Time   - calcTrends(), updTrends()
 // SigStoK[]; // Calculation similar to Stochastic Oscillator K data. TBD
 // SigStoM[]; // Calculation similar to Stochastic Oscillator Main data. TBD
 // SigAD[];   // Calculation similar to Accmulation/Ditribution Indicator data. TBD
@@ -106,12 +117,12 @@ void setTrendEnd(const int idx,
 
 
 int calcTrends(const int count, 
-                  const int start, 
-                  const double &open[],
-                  const double &high[],
-                  const double &low[],
-                  const double &close[],
-                  const datetime &time[]) {
+               const int start, 
+               const double &open[],
+               const double &high[],
+               const double &low[],
+               const double &close[],
+               const datetime &time[]) {
    // traverse {open, high, low, close, time} arrays for a duration 
    // of `count` beginning at `start`. Calculate time and rate of 
    // beginnings of market trend reversals, storing that data in 
@@ -228,23 +239,32 @@ int calcTrends(const int count,
 // see also: Heikin Ashi.mq4 src - "Existing work" in MQL4 indicator development
 
 void OnInit() {
-   IndicatorShortName("IND0");
+   IndicatorShortName(label);
    
    ArraySetAsSeries(TrendStrR, true);
    ArraySetAsSeries(TrendStrT, true);
    ArraySetAsSeries(TrendEndR, true);
    ArraySetAsSeries(TrendEndT, true);
    
-   IndicatorBuffers(4);
-   // NB: SetIndexBuffer may not accept a buffer of class type elements
-   SetIndexBuffer(0, TrendStrR);
-   SetIndexBuffer(1, TrendStrT);
-   SetIndexBuffer(2, TrendEndR);
-   SetIndexBuffer(3, TrendEndT);
+   ArrayInitialize(TrendStrR, 0.0);
+   ArrayInitialize(TrendEndR, 0.0);
+   ArrayInitialize(TrendStrT, 0);
+   ArrayInitialize(TrendEndT, 0);
+   
+   IndicatorBuffers(4); // Prototype 1: No separate buffer for indicator lines
+   // NB: SetIndexBuffer may <not> accept a buffer of class type elements
+   SetIndexBuffer(0, TrendStrR); // NB: Not stored for every chart tick
+   SetIndexBuffer(1, TrendStrT); // NB: Not stored for every chart tick
+   SetIndexBuffer(2, TrendEndR); // NB: Not stored for every chart tick
+   SetIndexBuffer(3, TrendEndT); // NB: Not stored for every chart tick
    // SetIndexBuffer(4, SigStoK[]); // TBD - calcSto
    // SetIndexBuffer(5, SigStoM[]); // TBD - calcSto
    // SetIndexBuffer(6, SigAD[]);   // TBD - calcAD
    // SetIndexBuffer(7, SigCCI[]);  // TBD - calcCCI
+
+   SetIndexStyle(0,DRAW_SECTION); // FIXME: How are the line's style and width made avaialble for configuration?
+   // FIXME: How are DRAW_SECTION indicator lines matched to chart tick indexes?
+   SetIndexDrawBegin(0, 0); // Indicator line drawn for TrendStrR, starting at index 0 (?)
 }
 
 
@@ -258,25 +278,30 @@ int OnCalculate(const int count,
                 const long &tick_volume[],
                 const long &volume[],
                 const int &spread[]) {
+   
+   int first, maxTrends;
                 
-   const int first = 0;
-   const int maxTrends = (count - first) / 2;
-   ArrayResize(TrendStrR, maxTrends, 0);
-   ArrayResize(TrendStrT, maxTrends, 0);
-   ArrayResize(TrendEndR, maxTrends, 0);
-   ArrayResize(TrendEndT, maxTrends, 0);
+   if(counted == 0) {
+      first = 0;
+      maxTrends = count / 2;
+      ArrayResize(TrendStrR, maxTrends, 0);
+      ArrayResize(TrendStrT, maxTrends, 0);
+      ArrayResize(TrendEndR, maxTrends, 0);
+      ArrayResize(TrendEndT, maxTrends, 0);
+   } else {
+     // TBD: 'count' when indicator called in realtime update
+   }
    logDebug(StringFormat("Count %d, Counted %d, maxTrends %d", count, counted, maxTrends));
 
    const int nrTrends = calcTrends(count, counted, open, high, low, close, time);
    logDebug(StringFormat("calcTrends nrTrends %d", nrTrends));
-   
-   // drawTrends(...)
    
    // FIXME: calcTrends is applied only for historic analysis. 
    //
    // The first trend calculated by calcTernds - i.e. trends[0] - should be updated
    // subsequent to incoming market data, when the function is applied in a realtime
    // indicator.
+   // TO DO: define updTrends(const int countDif, const int counted, ...)
    
    return nrTrends;
 }
