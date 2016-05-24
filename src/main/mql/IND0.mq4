@@ -37,17 +37,16 @@
 
 // - Input Parameters
 input bool  log_debug = true; // print initial runtime information to Experts log
-input bool  chart_draw_times = false; // draw additional indicators of trend duration
 
 // - Buffers
-double TrendStrR[]; // Trend Start Rate
-double TrendStrT[]; // Trend Start Time
-double TrendEndR[]; // Trend End Rate
-double TrendEndT[]; // Trend End Time
-// SigStoK[]; // Data similar to Stochastic Oscillator K
-// SigStoM[]; // Data similar to Stochastic Oscillator Main
-// SigAD[];   // Data similar to Accmulation/Ditribution Indicator
-// SigCCI[];  // Data similar to Commodity Channel Index Indicator
+double TrendStrR[]; // Trend Start Rate - calcTrends()
+double TrendStrT[]; // Trend Start Time - calcTrends()
+double TrendEndR[]; // Trend End Rate   - calcTrends()
+double TrendEndT[]; // Trend End Time   - calcTrends()
+// SigStoK[]; // Calculation similar to Stochastic Oscillator K data. TBD
+// SigStoM[]; // Calculation similar to Stochastic Oscillator Main data. TBD
+// SigAD[];   // Calculation similar to Accmulation/Ditribution Indicator data. TBD
+// SigCCI[];  // Calculation similar to Commodity Channel Index Indicator data. TBD
 
 // - Code
 
@@ -68,50 +67,43 @@ void logDebug(const string message) export {
    }
 }
 
-class Trend { // FIXME: separate this into four buffers, two of datetime[] and two of double[]
-public:
-   datetime startTime;
-   datetime endTime;
-   double startRate;
-   double endRate;
-      Trend() ;
-      Trend(datetime time, double rate);
-      Trend(datetime t1, double r1, datetime t2, double r2);
-};
-
-Trend::Trend() {
-  startTime = 0;
-  startRate = 0;
-  endTime = 0;
-  endRate = 0; 
-}
-
-Trend::Trend(const datetime time,const double rate) {
-  startRate = 0;
-  startTime = 0;
-  endTime = time;
-  endRate = rate; 
-}
-
-Trend::Trend(const datetime t1, const double r1, const datetime t2, const double r2) {
-   startRate = r1;
-   startTime = t1;
-   endRate = r2;
-   endTime = t2;
-}
-
-double getChange(const Trend &trend) {
-   return (trend.endRate - trend.startRate);
-}
-
-Trend *trends[]; // FIXME: Remove
-
 // NB: see also SymbolInfoTick()
 
 // FIXME: Cannot define calcTrends in a library and import it?
 // Compiler emits a message, "Constant variable cannot be passed 
 // as reference" when function is defined in a library then 
 // called as across an 'import' definition.
+
+
+void setTrend(const int idx, 
+              const datetime strT, // trend start time
+              const double strR,   // trend start rate
+              const datetime endT, 
+              const double endR) {
+   TrendStrT[idx] = strT;
+   TrendStrR[idx] = strR;
+   TrendEndT[idx] = endT;
+   TrendEndR[idx] = endR;
+}
+
+void setTrendStart(const int idx,
+                   const datetime time,
+                   const double rate) {
+// NB: This function is applied in historic data analysis
+   TrendStrT[idx] = time;
+   TrendStrR[idx] = rate;
+}
+
+
+void setTrendEnd(const int idx,
+                 const datetime time,
+                 const double rate) {
+// NB: This function may be applied in calculation and update of realtime indicators
+   TrendEndT[idx] = time;
+   TrendEndR[idx] = rate;
+}
+
+
 
 int calcTrends(const int count, 
                   const int start, 
@@ -123,27 +115,26 @@ int calcTrends(const int count,
    // traverse {open, high, low, close, time} arrays for a duration 
    // of `count` beginning at `start`. Calculate time and rate of 
    // beginnings of market trend reversals, storing that data in 
-   // the `trends` array and returning the number of trends calculated.
-   //
-   // `trends` should be of a length no greater than the length of each
-   // of the {open, high, low, close, time} arrays
+   // the `trends` arrays and returning the number of trends calculated.
 
    int sTick, pTick, nrTrends;
    double rate, sRate, pRate;
    bool updsTrend = false;
-   
-   Trend* sTrend = NULL;
 
    nrTrends = 0;
 
    sRate = calcRateHAC(open[start], high[start], low[start], close[start]);
    pRate = sRate;
    sTick = start;
-   pTick = start;
+   pTick = start+1;
 
-   bool calcMax = (sRate < calcRateHAC(open[start+1], high[start+1], low[start+1], close[start+1]));  
+   bool calcMax = (sRate < calcRateHAC(open[pTick], high[pTick], low[pTick], close[pTick]));  
 
    int n;
+   
+   // NB: In application for Indicator calculation, the 'start' parameter may 
+   // be considered as a pointer to the last calculated element of the trend 
+   // data buffers {TrendStrT, TrendStrR, TrendEndT, TrendEndR}
    
    for(n=start+1; n < count; n++) {
       // apply a simple high/low calculation for logical dispatch to trend filtering
@@ -154,8 +145,7 @@ int calcTrends(const int count,
          if(updsTrend) {
             sRate = rate;
             sTick = n;
-            sTrend.startRate = rate;
-            sTrend.startTime = time[n];
+            setTrendStart(nrTrends, time[n], rate);
          }
          pRate = rate;
          pTick = n;
@@ -165,59 +155,56 @@ int calcTrends(const int count,
          if(updsTrend) {
             sRate = rate;
             sTick = n;
-            sTrend.startRate = rate;
-            sTrend.startTime = time[n];
+            setTrendStart(nrTrends, time[n], rate);
          }
          pRate = rate;
          pTick = n;
       } else if (!calcMax && !updsTrend &&
-                  (sTrend != NULL) && 
-                  (high[n] >= sTrend.startRate) &&
-                  (sTrend.startRate > sTrend.endRate)) {
+                  (nrTrends > 0) && 
+                  (high[n] >= TrendStrR[nrTrends]) &&
+                  (TrendStrR[nrTrends] > TrendEndR[nrTrends])) {
       // high.n >= sTrend.startRate > sTrend.endRate
       // i.e trend now develops in parallel with sStrend - no longer traversing a reversal.
       // do not log as reversal. invert the traversal logic. udpate pRate, sRate, sTrend
          pRate = high[n];
          calcMax = true;
          sRate = pRate;
-         sTrend.startRate = sRate;
-         sTrend.startTime=time[n];
+         setTrendStart(nrTrends, time[n], sRate);
          sTick = n;
          pTick = n;
          logDebug(StringFormat("Invert !calcMax rate %f => %f [%d] %s", rate, pRate, n, TimeToString(time[n])));
          updsTrend = true;
       } else if (calcMax && !updsTrend &&
-                  (sTrend != NULL) && 
-                  (low[n] <= sTrend.startRate) &&
-                  (sTrend.startRate <= sTrend.endRate)) {
+                  (nrTrends > 0) && 
+                  (low[n] <= TrendStrR[nrTrends]) &&
+                  (TrendStrR[nrTrends] <= TrendEndR[nrTrends])) {
       // low.n <= sTrend.startRate <= sTrend.endRate
       // i.e trend now develops in parallel with sStrend - no longer traversing a reversal.
       // do not log as reversal. invert the traversal logic. udpate pRate, sRate, sTrend
          pRate = low[n];
          calcMax = false;
          sRate = pRate;
-         sTrend.startRate = sRate;
-         sTrend.startTime=time[n];
+         setTrendStart(nrTrends, time[n], sRate);
          sTick = n;
          pTick = n;
          logDebug(StringFormat("Invert calcMax rate %f => %f [%d] %s", rate, pRate, n, TimeToString(time[n])));
-         // FIXME: sTrend will not be further updated, past this branch of exec
          updsTrend = true;
       } else { 
       // trend interrupted
          if(!updsTrend) {
           // do not create new sTrend for intemediate log data
             logDebug(StringFormat("Record Trend (%f @ %s) => (%f @ %s) [%d]", pRate, TimeToString(time[pTick]), sRate, TimeToString(time[sTick]), n));
-            sTrend = new Trend(time[pTick], pRate, time[sTick], sRate);
-            trends[nrTrends++] = sTrend;
+            setTrend(nrTrends, time[pTick], pRate, time[sTick], sRate);
+            // sTrend = new Trend(time[pTick], pRate, time[sTick], sRate);
+            // trends[nrTrends++] = sTrend;
             logDebug(StringFormat("New number of trends: %d", nrTrends));
          }  else {
           // defer trend initializtion, previous sTrend updated
-            logDebug(StringFormat("End sTrend update (%f @ %s)[%d]", sTrend.startRate, TimeToString(sTrend.startTime), n));
+            logDebug(StringFormat("End sTrend update (%f @ %s)[%d]", TrendStrR[nrTrends], TimeToString(TrendStrT[nrTrends]), n));
             updsTrend = false;
          }
    
-         calcMax = (sTrend.startRate <= sTrend.endRate); // set for traversing reversal of previous trend
+         calcMax = (TrendStrR[nrTrends] <= TrendEndR[nrTrends]); // set for traversing reversal of previous trend
          sRate = calcMax ? low[pTick] : high[pTick];
          pRate = calcMax ? high[n] : low[n];
          sTick = pTick;
@@ -226,55 +213,16 @@ int calcTrends(const int count,
       } 
    }  
    
-   if (sTrend != NULL) { // nrTrends != 0
-      // final (series-first) trend
+   if (nrTrends > 0) {
+      // update last (chronologically first) trend record
       logDebug(StringFormat("Last Trend (%f @ %s) => (%f @ %s)", sRate, TimeToString(time[sTick]), pRate, TimeToString(time[n])));
       pRate = calcMax ? high[n]: low[n];
-      sTrend = new Trend(time[n], pRate, time[sTick], sRate);
-      trends[nrTrends++] = sTrend;
+      // sTrend = new Trend(time[n], pRate, time[sTick], sRate);
+      // trends[nrTrends++] = sTrend;
+      setTrend(nrTrends++, time[n], pRate, time[sTick], sRate);
    }
 
    return nrTrends;
-}
-
-void drawTrendsForS(const long id, const Trend* &trends[], const int count) { 
-   // FIXME: Revise for indicator line semanatics & remove
-
-   datetime startT, endT;
-   double startP, endP;
-   bool start, end;
-   string name;
-
-   for (int n = 0; n < count; n++) {
-      startT = trends[n].startTime;
-      startP = trends[n].startRate;
-      if (startT != 0 && startP != 0) {
-         start = true;
-         if (chart_draw_times) {
-            name = StringFormat("TREND %d START %s", n, TimeToString(startT)); // FIXME use formatted strings
-            ObjectCreate(id,name, OBJ_VLINE, 0, startT, 0);
-         }
-      }
-      
-      endT = trends[n].endTime;
-      endP = trends[n].endRate;
-      if (endT != 0 && endP != 0) {
-         end = true;
-      //// redundant
-      // name = StringFormat("TREND %d END %s", n, TimeToString(endT));
-      // ObjectCreate(id,name, OBJ_VLINE, 0, endT, 0);
-      }
-      
-      if(start && end) {
-         name = StringFormat("TREND %d LINE [%s .. %s ]", n, TimeToString(startT), TimeToString(endT));
-         ObjectCreate(id, name, OBJ_TREND, 0, startT, startP, endT, endP);
-         ObjectSetInteger(id,name,OBJPROP_RAY_RIGHT,false);
-         ObjectSetInteger(id,name,OBJPROP_COLOR,clrLime); // FIME: MAKE PROPERTY
-         ObjectSetInteger(id,name,OBJPROP_WIDTH,3); // FIME: MAKE PROPERTY
-      } /* else { // DEBUG
-         Print("Trend not complete : [" + startT + " ... " + endT + "]");
-      } */
-   }
 }
 
 // see also: Heikin Ashi.mq4 src - "Existing work" in MQL4 indicator development
@@ -313,18 +261,14 @@ int OnCalculate(const int count,
                 
    const int first = 0;
    const int maxTrends = (count - first) / 2;
-   ArrayResize(trends, maxTrends, 0); // FIXME remove
    ArrayResize(TrendStrR, maxTrends, 0);
    ArrayResize(TrendStrT, maxTrends, 0);
    ArrayResize(TrendEndR, maxTrends, 0);
    ArrayResize(TrendEndT, maxTrends, 0);
    logDebug(StringFormat("Count %d, Counted %d, maxTrends %d", count, counted, maxTrends));
-   
-   const int nrTrends = 0;
-   
-   // nrTrends = calcTrends(count, counted, trends, open, high, low, close, time);
-   // ^ FIXME: redefine calcTrends for Trend{Str|End}{R|T} and apply here
-   // logDebug(StringFormat("calcTrends nrTrends %d", nrTrends));
+
+   const int nrTrends = calcTrends(count, counted, open, high, low, close, time);
+   logDebug(StringFormat("calcTrends nrTrends %d", nrTrends));
    
    // drawTrends(...)
    
