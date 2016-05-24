@@ -11,7 +11,7 @@
     * **Platform:** MetaTrader 4
     * **Format:** MQL4
     * **Synopsis:**
-    * History
+    * **History**
         * Initial Prototype for otlib EA0
         * Later renamed to SCR0.mq4
         * Reusable functions from SCR0 subsequently reproduced in
@@ -64,7 +64,7 @@
       buffer_.
 
     * **Known Issues**
-        * **SCR0_INDO_DIVERGE**
+        * **SCR0_IND0_DIVERGE**
             * **Synopsis:** Market rate trend calculation diverges
               between calculations produced with `calcTrends` in SCR0
               and `calcTrends` in IND0. The mechanical logic
