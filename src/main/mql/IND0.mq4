@@ -51,31 +51,6 @@ double calcRateHAC(const double open,
 }
 
 
-
-void logDebug(const string message) export { 
-   // FIXME: Reimplement w/ a reusable preprocessor macro, optimizing the call pattern for this fn
-   if (log_debug) {
-      Print(message);
-   }
-}
-
-#import "libot.ex4"
-   double calcRateHAC(double open, double high, double low, double close);
-#import
-
-
-
-double calcRateHAC(const double open, 
-                   const double high, 
-                   const double low, 
-                   const double close) export {
-   // calculate rate in a manner of Heikin Ashi Close
-   double value = ( open + high + low + close ) / 4;
-   return value;
-}
-
-
-
 void logDebug(const string message) export { 
    // FIXME: Reimplement w/ a reusable preprocessor macro, optimizing the call pattern for this fn
    if (log_debug) {
