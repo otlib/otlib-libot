@@ -35,18 +35,36 @@
 #property strict
 #property script_show_inputs
 
-#import "libot.ex4"
-   void logDebug(string message);
-   double calcRateHAC(double open, double high, double low, double close);
-#import
-
-
 input int   a_period_init=5; // e.g STO//D, STO//SLOWING
 input int   b_period_init=15; // e.g STO//K, CCI PERIOD, FISHER PERIOD
 input int   c_period_init=10; // e.g LWMA period
 input bool  log_debug = true; // print initial runtime information to Experts log
 input bool  chart_draw_times = false; // draw trend duration times
 
+
+#import "libot.ex4"
+   double calcRateHAC(double open, double high, double low, double close);
+#import
+
+
+
+double calcRateHAC(const double open, 
+                   const double high, 
+                   const double low, 
+                   const double close) export {
+   // calculate rate in a manner of Heikin Ashi Close
+   double value = ( open + high + low + close ) / 4;
+   return value;
+}
+
+
+
+void logDebug(const string message) export { 
+   // FIXME: Reimplement w/ a reusable preprocessor macro, optimizing the call pattern for this fn
+   if (log_debug) {
+      Print(message);
+   }
+}
 
 class Trend { // FIXME: separate this into four buffers, two of datetime[] and two of double[]
 public:
@@ -88,9 +106,14 @@ double getChange(const Trend &trend) {
 
 // NB: see also SymbolInfoTick()
 
+// FIXME: Cannot define calcTrends in a library and import it?
+// Compiler emits a message, "Constant variable cannot be passed 
+// as reference" when function is defined in a library then 
+// called as across an 'import' definition.
+
 int calcTrends(const int count, 
                   const int start, 
-                  Trend* &trends[],
+                  Trend* &trends[], // FIXME: define as a four-slot indicator buffer arrangement
                   const double &open[],
                   const double &high[],
                   const double &low[],
