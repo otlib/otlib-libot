@@ -136,17 +136,18 @@ void setDrawRate(const int cidx, const double rate) {
 }
 
 void setTrend(const int tidx, // trend number
-              const int cidx, // chart tick index for trend start
-              const datetime strT, // trend start time
+              const int stridx, // chart tick index for trend start
+              const int endidx, // chart tick index for trend en
               const double strR,   // trend start rate
-              const datetime endT, 
               const double endR) {
-   TrendDraw[cidx] = strR;
-   TrendDrSTk[tidx] = cidx;
+   TrendDraw[stridx] = strR;
+   TrendDrSTk[tidx] = stridx;
+   TrendDraw[endidx] = endR;
+   TrendDrETk[tidx] = endidx;
    
-   TrendStrT[tidx] = strT;
+   TrendStrT[tidx] = Time[stridx];
    TrendStrR[tidx] = strR;
-   TrendEndT[tidx] = endT;
+   TrendEndT[tidx] = Time[endidx];
    TrendEndR[tidx] = endR;
 }
 
@@ -168,10 +169,9 @@ void moveTrendStart(const int tidx, // trend number
                     const double rate,
                     const bool movePrev=true) {
    const int obsTick = TrendDrSTk[tidx]; // ensure previous slot zeroed
-   logDebug(StringFormat("Zeroize TrendDraw for obsTick %d", obsTick));
-   setDrawZero(obsTick);
+   if(obsTick != cidx) { setDrawZero(obsTick); } // ?
    setTrendStart(tidx, cidx, time, rate);
-   if (movePrev && (tidx > 0) && (tidx <= nrTrends)) {
+   if (movePrev && (tidx > 0)) {
    //  Also adjust end rate, time of previous trend when tidx > 0 ?
       moveTrendEnd(tidx-1, cidx, time, rate, false);
    }
@@ -186,10 +186,10 @@ void setTrendEnd(const int tidx, // trend number
 // NB: TrendDraw is not modified here, as TrendDraw is being applied such as to record 
 // trend start rates at individual chart ticks coinciding with a trend start
 
+   setDrawRate(cidx,rate);
    TrendEndT[tidx] = time;
    TrendEndR[tidx] = rate;
    TrendDrETk[tidx] = cidx;
-   setDrawRate(cidx,rate);
    // NB: this function does not update for tidx+1
    // see also: moveTrendENd
 }
@@ -199,9 +199,9 @@ void moveTrendEnd(const int tidx, // trend number
                   const datetime time,
                   const double rate,
                   const bool moveNext=true) {
-   setTrendEnd(tidx, cidx, time, rate);
    const int obsTick = TrendDrETk[tidx];
-   setDrawZero(obsTick);
+   if(obsTick != cidx) { setDrawZero(obsTick); } // ?
+   setTrendEnd(tidx, cidx, time, rate);
    if(moveNext && (tidx+1 < nrTrends)) {
       moveTrendStart(tidx+1, cidx, time, rate, false);
    }
@@ -217,6 +217,10 @@ datetime trendStartTime(const int tidx) {
    return TrendStrT[tidx];
 }
 
+int trendStartIndex(const int tidx) {
+   return TrendDrSTk[tidx];
+}
+
 double trendEndRate(const int tidx) {
    return TrendEndR[tidx];
 }
@@ -225,6 +229,9 @@ datetime trendEndTime(const int tidx) {
    return TrendEndT[tidx];
 }
 
+int trendEndIndex(const int tidx) {
+   return TrendDrETk[tidx];
+}
 
 int calcTrends(const int count, 
                const int start, 
@@ -284,12 +291,13 @@ int calcTrends(const int count,
          }
       } else if (!calcMax && !updsTrend &&
                   (nrTrends > 0) && 
-                  (high[n] > trendStartRate(nrTrends)) &&
+                  (trendStartRate(nrTrends) < trendEndRate(nrTrends)) &&
+                  ((high[n] > trendEndRate(nrTrends)) || (low[n] > trendEndRate(nrTrends))) &&
                   (trendStartRate(nrTrends) > trendEndRate(nrTrends))) {
-      // high.n >= sTrend.startRate > sTrend.endRate
+      // [high|low].n >= sTrend.startRate > sTrend.endRate
       // i.e trend now develops in parallel with sStrend - no longer traversing a reversal.
       // do not log as reversal. invert the traversal logic. udpate pRate, sRate, sTrend
-         pRate = high[n];
+         pRate = (high[n] > trendEndRate(nrTrends)) ? high[n] : low[n];
          calcMax = true;
          // sRate = pRate;
          
@@ -300,12 +308,13 @@ int calcTrends(const int count,
          updsTrend = true;
       } else if (calcMax && !updsTrend &&
                   (nrTrends > 0) && 
-                  (low[n] < trendStartRate(nrTrends)) &&
+                  (trendStartRate(nrTrends) > trendEndRate(nrTrends)) &&
+                  ((low[n] < trendEndRate(nrTrends)) || (high[n] < trendEndRate(nrTrends))) &&
                   (trendStartRate(nrTrends) < trendEndRate(nrTrends))) {
-      // low.n <= sTrend.startRate <= sTrend.endRate
+      // [low|high].n <= sTrend.startRate <= sTrend.endRate
       // i.e trend now develops in parallel with sStrend - no longer traversing a reversal.
       // do not log as reversal. invert the traversal logic. udpate pRate, sRate, sTrend
-         pRate = low[n];
+         pRate = (low[n] < trendEndRate(nrTrends)) ? low[n] : high[n];
          calcMax = false;
          // sRate = pRate;
          
@@ -318,7 +327,7 @@ int calcTrends(const int count,
       // trend interrupted
          if(!updsTrend) {
             logDebug(StringFormat("Record Trend (%f @ %s) => (%f @ %s) [%d]", pRate, TimeToString(time[pTick]), sRate, TimeToString(time[sTick]), n));
-            setTrend(nrTrends, pTick, time[pTick], pRate, time[sTick], sRate); // NB: Updates TrendDraw[pTick], TrendDrSTk[nrTrends]
+            setTrend(nrTrends, pTick, sTick, pRate, sRate); // NB: Updates TrendDraw[pTick], TrendDrSTk[nrTrends]
             // sTrend = new Trend(time[pTick], pRate, time[sTick], sRate);
             // trends[nrTrends++] = sTrend;
             logDebug(StringFormat("New number of trends: %d", nrTrends));
@@ -348,9 +357,10 @@ int calcTrends(const int count,
       pRate = calcMax ? high[n]: low[n];
       // sTrend = new Trend(time[n], pRate, time[sTick], sRate);
       // trends[nrTrends++] = sTrend;
-      setTrend(nrTrends++, n, time[n], pRate, time[sTick], sRate); // NB: Updates TrendDraw[n]
+      setTrend(nrTrends++, n, sTick, pRate, sRate); // NB: Updates TrendDraw[n]
    }
-   
+
+   // set draw rate for end rate of zeroth trend 
    setDrawRate(start, trendEndRate(0));
 
    return nrTrends; // NB: Not same as number of ticks
@@ -428,30 +438,40 @@ int OnCalculate(const int nticks,
    if(counted == 0) {
       toCount = nticks;
       nrTrends = calcTrends(nticks, counted, open, high, low, close, time);
-      Print(StringFormat("calcTrends nrTrends %d (toCount/count %d/%d)", nrTrends, toCount, nticks));
+      // Print(StringFormat("calcTrends nrTrends %d (toCount/count %d/%d)", nrTrends, toCount, nticks)); // DEBUG
    } else {
       // note that this branch of program exec may be entered repeatedly within the duration of one market tick
       // even when the market tick is at the smallest resolution i.e. 1M
      toCount = nticks - counted; // FIXME: Parametrs named like a minomer
-     Print(StringFormat("calcTrends for count %d ticks != 0 (to count %d) (counted %d trends)", nticks, toCount, counted));
+     // Print(StringFormat("calcTrends for count %d ticks != 0 (to count %d) (counted %d trends)", nticks, toCount, counted)); // DEBUG
      
-     const double start = trendStartRate(nrTrends-1);
-     const double end = trendEndRate(nrTrends-1);
-     const int dtk = TrendDrSTk[nrTrends-1]; // FIXME: Define accessor fn
-     
-     for(int n=toCount; n >= 0; n--) {
-      if(start > end > low[n]) {
-      // simple continuing trend, market rate numerically decreasing
-         moveTrendEnd(nrTrends,n,time[n],low[n]);
-      } else if (start < end < high[n]) {
-      // simple continuing trend, market rate numerically increasing
-         moveTrendEnd(nrTrends,n,time[n],high[n]);
-      } else {
-      // immediate reversal on Trend[nrTrends]
-      // trend start is determinable, but trend end ...
-      
-      // FIXME: IMPLEMENT
-      }
+     if((toCount > 0) && (nrTrends > 0)) {
+        const double start = trendStartRate(nrTrends-1);
+        const double end = trendEndRate(nrTrends-1);
+        const int dtk = TrendDrSTk[nrTrends-1]; // FIXME: Define accessor fn
+        
+        // FIXME: Something is breaking in this branch
+        
+        for(int n=toCount; n > 0; n--) {
+         break; // FIXME
+         if((start > end) && ((start > low[n]) || (start > high[n]))) {
+         // simple continuing trend, market rate numerically decreasing
+            moveTrendEnd(nrTrends,n,time[n],low[n], false);
+         } else if ((start < end) && ((start < high[n]) || (start < low[n]))) {
+         // simple continuing trend, market rate numerically increasing
+            moveTrendEnd(nrTrends,n,time[n],high[n], false);
+         } else {
+         // immediate reversal on Trend[nrTrends]
+         // new trend start is determinable at index of previous trend end.
+         // new trend end is the immediate n
+         
+            const int ptedx = trendEndIndex(nrTrends);
+            const double ptedr = trendEndRate(nrTrends);
+            const double rate = (start > low[n]) ? low[n] : high[n];
+            setTrend(nrTrends++,ptedx,n,ptedr,rate);
+   
+         }
+       }
      }
    }
    logDebug(StringFormat("Count %d, Counted %d", nticks, counted));
