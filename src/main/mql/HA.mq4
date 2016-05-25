@@ -39,33 +39,33 @@
 
 // HA0 indicator buffers (drawn)
 //
-// EA0 buffer 0 (1) : HA low=>high   - bear tick trace - HABear
-// EA0 buffer 1 (2) : HA high=>low   - bull tick trace - HABull
-// EA0 buffer 2 (3) : HA ..open..    - bear tick body - HAClose 
-// EA0 buffer 3 (4) : HA ..close..   - bull tick body - HAOpen
+// EA0 buffer 0 (1) : HA low=>high   - bear tick trace - HABearTrc
+// EA0 buffer 1 (2) : HA high=>low   - bull tick trace - HABullTrc
+// EA0 buffer 2 (3) : HA ..open..    - bear tick body - HAOpen 
+// EA0 buffer 3 (4) : HA ..close..   - bull tick body - HAClose
 
-#property indicator_color1 clrRed
+#property indicator_color1 clrTomato
 #property indicator_width1 1
 #property indicator_style1 STYLE_SOLID
 
-#property indicator_color2 clrYellow
+#property indicator_color2 clrKhaki
 #property indicator_width2 1
 #property indicator_style2 STYLE_SOLID
 
-#property indicator_color3 clrRed
+#property indicator_color3 clrTomato
 #property indicator_width3 3
 #property indicator_style3 STYLE_SOLID
 
-#property indicator_color4 clrYellow
+#property indicator_color4 clrKhaki
 #property indicator_width4 3
 #property indicator_style4 STYLE_SOLID
 
 
-// - Input Parameters
-input color haBearTraceColor = clrRed;    // bare tick trace
-input color haBullTraceColor = clrYellow; // bull tick trace
-input color haBearBodyColor = clrRed;     // bear tick body
-input color haBullBodyColor = clrYellow;  // bull tick body
+// - Line Properties as Input Parameters
+// input color haBearTraceColor = clrTomato;    // bare tick trace
+// input color haBullTraceColor = clrKhaki; // bull tick trace
+// input color haBearBodyColor = clrTomato;     // bear tick body
+// input color haBullBodyColor = clrKhaki;  // bull tick body
 
 // - Program Parameters
 const string label   = "HA";
@@ -87,8 +87,8 @@ double calcRateHAC(const double open,
 
 // - Buffers - HA
 double HAOpen[];
-double HABear[];
-double HABull[];
+double HABearTrc[];
+double HABullTrc[];
 double HAClose[];
 double HATick[]; // FIXME: Initialize; resize
 int HACount = 0;
@@ -104,7 +104,7 @@ int calcHA(const int count,
 
 // NB: this HA implementation will not invert the indexing of the open, high, low, close time buffers.
 // Those buffers will use an inverse indexing sequence - similar to other indicators in this program
-// contrasted to HAOpen, HABear, HABull, HAClose, which will use indexes approaching "0" at "oldest" tick.
+// contrasted to HAOpen, HABearTrc, HABullTrc, HAClose, which will use indexes approaching "0" at "oldest" tick.
 
    double mopen, mhigh, mlow, mclose, hopen, hhigh, hlow, hclose, hmaxoc, haoprev, hacprev;
    int hidx, tickidx;
@@ -121,15 +121,15 @@ int calcHA(const int count,
          mlow = low[tickidx];     // market rate low
          mclose = close[tickidx]; // market rate close
          if(mopen < mclose) {
-            HABear[0] = mlow; 
-            HABull[0] = mhigh;
+            HABearTrc[0] = mlow; 
+            HABullTrc[0] = mhigh;
          } else {
-            HABear[0] = mhigh;
-            HABull[0] = mlow;
+            HABearTrc[0] = mhigh;
+            HABullTrc[0] = mlow;
          }
          haoprev = mopen;
          HAOpen[0] = haoprev;
-         hacprev = mclose;
+         hacprev = calcRateHAC(mopen, mhigh, mlow, mclose);
          HAClose[0] = hacprev;
          HATick[0] = tickidx;
       } else {
@@ -140,7 +140,7 @@ int calcHA(const int count,
       
       
       // calculate subsequent HA tick records
-      for(hidx = start+1, tickidx = (count - start - 1); hidx < count; hidx++, tickidx--) {
+      for(hidx = start+1, tickidx = (count - start - 2); hidx < count; hidx++, tickidx--) {
          mopen = open[tickidx];
          mhigh = high[tickidx];
          mlow = low[tickidx];
@@ -148,15 +148,14 @@ int calcHA(const int count,
 
          hopen = (haoprev + hacprev) / 2;
          hclose = calcRateHAC(mopen, mhigh, mlow, mclose);
-         hmaxoc = MathMax(hopen, hclose);
-         hhigh = MathMax(mhigh, hmaxoc); // FIXME record hhigh separate of draw buffers
-         hlow = MathMax(mlow, hmaxoc); // FIXME record hlow separate of draw buffers
+         hhigh = MathMax(mhigh, MathMax(hopen, hclose)); // FIXME record hhigh separate of draw buffers
+         hlow = MathMin(mlow, MathMin(hopen, hclose)); // FIXME record hlow separate of draw buffers
          if(hopen < hclose) {
-            HABear[hidx] = hlow;
-            HABull[hidx] = hhigh;
+            HABearTrc[hidx] = hlow;
+            HABullTrc[hidx] = hhigh;
          } else {
-            HABear[hidx] = hhigh;
-            HABull[hidx] = hlow;
+            HABearTrc[hidx] = hhigh;
+            HABullTrc[hidx] = hlow;
          }
          HAOpen[hidx] = hopen;
          haoprev = hopen;
@@ -183,44 +182,44 @@ void OnInit() {
    
    // NB: SetIndexBuffer may <not> accept a buffer of class type elements
 
-   SetIndexBuffer(0, HABear);
-   SetIndexStyle(0,DRAW_HISTOGRAM, STYLE_SOLID, 1, haBearTraceColor);
+   SetIndexBuffer(0, HABearTrc);
+   SetIndexStyle(0,DRAW_HISTOGRAM);
    SetIndexLabel(0,"Bear Tick Trace"); 
    SetIndexDrawBegin(0,2);
    
-   SetIndexBuffer(1, HABull);
-   SetIndexStyle(1,DRAW_HISTOGRAM, STYLE_SOLID, 1, haBullTraceColor);
+   SetIndexBuffer(1, HABullTrc);
+   SetIndexStyle(1,DRAW_HISTOGRAM);
    SetIndexLabel(1,"Bull Tick Trace");
    SetIndexDrawBegin(1,2);
 
    SetIndexBuffer(2, HAOpen);
-   SetIndexStyle(2,DRAW_HISTOGRAM, STYLE_SOLID, 3, haBearBodyColor); // X
+   SetIndexStyle(2,DRAW_HISTOGRAM); // X
    SetIndexLabel(2,"Bear Tick Body"); 
    SetIndexDrawBegin(2,2);
    
    SetIndexBuffer(3, HAClose);
-   SetIndexStyle(3,DRAW_HISTOGRAM, STYLE_SOLID, 3, haBullBodyColor); // X
+   SetIndexStyle(3,DRAW_HISTOGRAM); // X
    SetIndexLabel(3,"Bull Tick Body");
    SetIndexDrawBegin(3,2);
    
    // FIXME: consider a non-zero reserve_size in the following
    const int nbars = iBars(NULL, 0);
    ArrayResize(HAOpen, nbars, 0);
-   ArrayResize(HABear, nbars, 0);
-   ArrayResize(HABull, nbars, 0);
+   ArrayResize(HABearTrc, nbars, 0);
+   ArrayResize(HABullTrc, nbars, 0);
    ArrayResize(HAClose, nbars, 0);
    ArrayResize(HATick, nbars, 0);
 
    ArrayInitialize(HAOpen, dblz);
-   ArrayInitialize(HABear, dblz);
-   ArrayInitialize(HABull, dblz);
+   ArrayInitialize(HABearTrc, dblz);
+   ArrayInitialize(HABullTrc, dblz);
    ArrayInitialize(HAClose, dblz);
    ArrayInitialize(HATick, 0);
    
    // DO THIS AFTER OTHER CALLS ... (FIXME: DOCUMENTATION)
    ArraySetAsSeries(HAOpen, false);
-   ArraySetAsSeries(HABear, false);
-   ArraySetAsSeries(HABull, false);
+   ArraySetAsSeries(HABearTrc, false);
+   ArraySetAsSeries(HABullTrc, false);
    ArraySetAsSeries(HAClose, false);
    ArraySetAsSeries(HATick, false);
 
