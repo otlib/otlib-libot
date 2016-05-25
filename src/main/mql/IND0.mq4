@@ -34,10 +34,45 @@
 #property version   "1.00"
 #property strict
 #property script_show_inputs
-#property indicator_buffers 1 // number of drawn buffers
-#property indicator_color1 clrLimeGreen  // EA0 buffer 0 (1)
-#property indicator_width1 3;
-#property indicator_style1 STYLE_SOLID;
+#property indicator_chart_window
+#property indicator_buffers 5 // number of drawn buffers
+
+// EA0 indicator buffers (drawn)
+//
+// EA0 buffer 0 (1) : market trends
+// EA0 buffer 1 (2) : HA high=>low  - bear tick trace - HALow
+// EA0 buffer 2 (3) : HA low=>high  - bull tick trace - HAHigh
+// EA0 buffer 3 (4) : HA open=>close - bear tick body - HAOpen 
+// EA0 buffer 5 (5) : HA close=>open - bull tick body - HAClose
+
+#property indicator_color1 clrLimeGreen
+#property indicator_width1 3
+#property indicator_style1 STYLE_SOLID
+
+#property indicator_color2 clrRed
+#property indicator_width2 1
+#property indicator_style2 STYLE_SOLID
+
+#property indicator_color3 clrYellow
+#property indicator_width3 1
+#property indicator_style3 STYLE_SOLID
+
+#property indicator_color4 clrRed
+#property indicator_width4 3
+#property indicator_style4 STYLE_SOLID
+
+#property indicator_color5 clrYellow
+#property indicator_width5 3
+#property indicator_style5 STYLE_SOLID
+
+
+// - Input Parameters
+input bool log_debug = false; // log runtime information
+input color trendColor = clrLimeGreen;    // trend reversals
+input color haBearTraceColor = clrRed;    // bare tick trace
+input color haBullTraceColor = clrYellow; // bull tick trace
+input color haBearBodyColor = clrRed;     // bear tick body
+input color haBullBodyColor = clrYellow;  // bull tick body
 
 // FIXME: message "libot is not loaded" ??
 // #import "libot"
@@ -74,9 +109,6 @@ int dayStartOffL() export {
 // automaticallly present line width and line style options 
 // for each drawn buffer (??)
 
-// - Input Parameters
-input bool log_debug = false; // print initial runtime information to Experts log
-
 // - Program Parameters
 const string label   = "IND0";
 
@@ -85,7 +117,7 @@ const double dblz   = 0.0; // use one 0.0 value for zero of type 'double'
 int nrTrends = 0;
 
 
-// - Buffers
+// - Buffers - Trends
 double TrendDraw[]; // Drawn buffer - calcTrends(), updTrends()
 // NB: TrendDraw contents are synched to clock ticks 
 // NB: TrendDraw values: either 0.0 or Trend Start Rate at tick
@@ -149,6 +181,7 @@ void logDebug(const string message) {
 
 // - Heikin Ashi chart records
 
+// - Buffers - HA
 double HAOpen[];
 double HAHigh[];
 double HALow[];
@@ -157,7 +190,6 @@ double HATick[]; // FIXME: Initialize; resize
 int HACount = 0;
 int HAStart = 0;
 
-// TO DO]
 int calcHA(const int count, 
            const int start, 
            const double &open[],
@@ -170,27 +202,31 @@ int calcHA(const int count,
 // Those buffers will use an inverse indexing sequence - similar to other indicators in this program
 // contrasted to HAOpen, HAHigh, HALow, HAClose, which will use indexes approaching "0" at "oldest" tick.
 
-   double mopen, mhigh, mlow, mclose, hopen, hhigh, hlow, hclose, hmaxoc;
+   double mopen, mhigh, mlow, mclose, hopen, hhigh, hlow, hclose, hmaxoc, haoprev, hacprev;
    int hidx;
    
-   if(start+2 >= count) {
+   Print(StringFormat("HA Indicator %d, %d", count, start)); // DEBUG
+   
+   if(count >= start+2) {
    
       if(start == 0) {
       // calculate initial HA tick record
-         mopen = open[count];   // market rate open
-         mhigh = high[count];   // market rate high
-         mlow = low[count];     // market rate low
-         mclose = close[count]; // market rate close
+         mopen = open[count-1];   // market rate open
+         mhigh = high[count-1];   // market rate high
+         mlow = low[count-1];     // market rate low
+         mclose = close[count-1]; // market rate close
          if(mopen < mclose) {
-            HAHigh[0] = mlow;
+            HAHigh[0] = mlow; 
             HALow[0] = mhigh;
          } else {
             HAHigh[0] = mhigh;
             HALow[0] = mlow;
          }
-         HAOpen[0] = mopen;
-         HAClose[0] = calcRateHAC(mopen, mhigh, mlow, mclose);
-         HATick[0] = count;
+         haoprev = mopen;
+         HAOpen[0] = haoprev;
+         hacprev = calcRateHAC(mopen, mhigh, mlow, mclose);
+         HAClose[0] = hacprev;
+         HATick[0] = count-1;
          hidx = 1;
       } else {
         // assume previous HA Open, High, Low, Close records exist
@@ -204,7 +240,7 @@ int calcHA(const int count,
          mlow = low[n];
          mclose = close[n];
 
-         hopen = (mopen + mclose) / 2;
+         hopen = (haoprev + hacprev) / 2;
          hclose = calcRateHAC(mopen, mhigh, mlow, mclose);
          hmaxoc = MathMax(hopen, hclose);
          hhigh = MathMax(mhigh, hmaxoc);
@@ -217,7 +253,9 @@ int calcHA(const int count,
             HALow[hidx] = mlow;
          }
          HAOpen[hidx] = hopen;
+         haoprev = hopen;
          HAClose[hidx] = hclose;
+         hacprev = hclose;
          HATick[hidx] = n;
          hidx++;
       }
@@ -225,6 +263,7 @@ int calcHA(const int count,
       HACount = hidx - start;
       return HACount;
    } else {
+      Print(StringFormat("HA INDICATOR ABORT %d %d", count, start)); // DEBUG
       return 0;
    }    
 }
@@ -481,6 +520,7 @@ int calcTrends(const int count,
 
 void OnInit() {
    IndicatorShortName(label);
+   IndicatorDigits(Digits);
    
    ArraySetAsSeries(TrendDraw, true);
    ArraySetAsSeries(TrendDrSTk, true);
@@ -495,25 +535,51 @@ void OnInit() {
    ArraySetAsSeries(HAClose, false);
    ArraySetAsSeries(HATick, false);
 
-   IndicatorBuffers(3); // Prototype 1: No separate buffer for indicator lines (?)
+   IndicatorBuffers(5); // Prototype 1: No separate buffer for indicator lines (?)
+   
    // NB: SetIndexBuffer may <not> accept a buffer of class type elements
-   SetIndexBuffer(0, TrendDraw); // NB: Stored for every chart tick
+
+   SetIndexBuffer(0, TrendDraw);
    SetIndexEmptyValue(0, dblz);
+   SetIndexStyle(0, DRAW_SECTION, STYLE_SOLID); // OVERRIDES OTHER INDICATORS IN SAME PROGRAM?
+   SetIndexLabel(0, "Reversals");
+   SetIndexDrawBegin(0, 0);
+
+   SetIndexBuffer(1, HALow);
+   // SetIndexEmptyValue(1, dblz);
+   SetIndexStyle(1,DRAW_HISTOGRAM, STYLE_SOLID, 1, haBearTraceColor);
+   SetIndexLabel(1,"Bear Tick Trace"); 
+   SetIndexDrawBegin(1,2);
+   
+   SetIndexBuffer(2, HAHigh);
+   // SetIndexEmptyValue(2, dblz);
+   SetIndexStyle(2,DRAW_HISTOGRAM, STYLE_SOLID, 1, haBullTraceColor);
+   SetIndexLabel(1,"Bull Tick Trace");
+   SetIndexDrawBegin(2,2);
+   
+   SetIndexBuffer(3, HAOpen);
+   // SetIndexEmptyValue(3, dblz);
+   SetIndexStyle(3,DRAW_HISTOGRAM, STYLE_SOLID, 3, haBearBodyColor);
+   SetIndexLabel(3,"Bear Tick Body"); 
+   SetIndexDrawBegin(3,2);
+   
+   SetIndexBuffer(4, HAClose);
+   // SetIndexEmptyValue(4, dblz);
+   SetIndexStyle(4,DRAW_HISTOGRAM, STYLE_SOLID, 3, haBullBodyColor);
+   SetIndexLabel(4,"Bull Tick Body"); 
+   SetIndexDrawBegin(4,2);
 
    // NB: This indicator also uses TrendDrSTk, TrendStrT, TrendEndT.
    // However, SetIndexBuffer is not applicable for
    // arrays of datetime[] or int[] type
-   SetIndexBuffer(1, TrendStrR); // NB: Not stored for every chart tick
-   SetIndexBuffer(2, TrendEndR); // NB: Not stored for every chart tick
+   // SetIndexBuffer(??, TrendStrR); // NB: Not stored for every chart tick, not drawn
+   // SetIndexBuffer(??, TrendEndR); // NB: Not stored for every chart tick, not drawn
+   
    // SetIndexBuffer(4, SigStoK[]); // TBD - calcSto
    // SetIndexBuffer(5, SigStoM[]); // TBD - calcSto
    // SetIndexBuffer(6, SigAD[]);   // TBD - calcAD
    // SetIndexBuffer(7, SigCCI[]);  // TBD - calcCCI
 
-   SetIndexStyle(0, DRAW_SECTION); // FIXME: How are the line's style and width made avaialble for configuration?
-   // FIXME: How are DRAW_SECTION indicator lines matched to chart tick indexes?
-   SetIndexDrawBegin(0, 0); // Indicator line drawn for TrendStrR, starting at index 0 (?)
-   
    const int nbars = iBars(NULL, 0);
    const int maxTrends = nbars;
    
@@ -565,14 +631,14 @@ int OnCalculate(const int nticks,
    if(counted == 0) {
       toCount = nticks;
       nrTrends = calcTrends(nticks, counted, open, high, low, close, time);
-      Print(StringFormat("calcTrends nrTrends %d (count, toCount %d counted %d)", nrTrends, nticks, counted)); // DEBUG
+      // Print(StringFormat("calcTrends nrTrends %d (count, toCount %d counted %d)", nrTrends, nticks, counted)); // DEBUG
       haCount = calcHA(nticks,counted,open,high,low,close);
       return toCount;
    } else {
-      // note that this branch of program exec may be arrived at repeatedly,
-      // at a duration less than the minimum possible chart resolution
+     // note that this branch of program exec may be arrived at repeatedly,
+     // at a duration less than the minimum possible chart resolution
      toCount = nticks - counted; // FIXME: Parametrs named like a minomer
-     Print(StringFormat("calcTrends for count %d ticks != 0 (to count %d) (counted %d trends)", nticks, toCount, counted)); // DEBUG
+     // Print(StringFormat("calcTrends for count %d ticks != 0 (to count %d) (counted %d trends)", nticks, toCount, counted)); // DEBUG
      
      // TO DO : Define a forwardBuff not assigned to tick rates,
      // as for purpose of recording rate changes at durations 
