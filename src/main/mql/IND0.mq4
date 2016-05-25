@@ -466,44 +466,53 @@ int OnCalculate(const int nticks,
       Print(StringFormat("calcTrends nrTrends %d (count, toCount %d counted %d)", nrTrends, nticks, counted)); // DEBUG
       return toCount;
    } else {
-      // note that this branch of program exec may be entered repeatedly within the duration of one market tick
-      // even when the market tick is at the smallest resolution i.e. 1M
+      // note that this branch of program exec may be arrived at repeatedly,
+      // at a duration less than the minimum possible chart resolution
      toCount = nticks - counted; // FIXME: Parametrs named like a minomer
      Print(StringFormat("calcTrends for count %d ticks != 0 (to count %d) (counted %d trends)", nticks, toCount, counted)); // DEBUG
      
      // TO DO : Define a forwardBuff not assigned to tick rates,
      // as for purpose of recording rate changes at durations 
-     // less than chart period.
+     // less than minimum chart period.
      
      if((toCount > 0) && (nrTrends > 0)) {
-        const double start = trendStartRate(nrTrends-1);
-        const double end = trendEndRate(nrTrends-1);
+        // const double pstart = trendStartRate(nrTrends-1);
+        // const double pend = trendEndRate(nrTrends-1);
+        const double cstart = trendStartRate(nrTrends);
+        const double cend = trendEndRate(nrTrends);
         double curHigh, curLow, rate;
-        // const int dtk = TrendDrSTk[nrTrends-1]; // FIXME: Define accessor fn
-        
-        // FIXME: Something is breaking in this branch
         
         for(int n=toCount; n >= 0; n--) {
-         // break; // FIXME
-         curHigh= high[n];
-         curLow=low[n];
-         if((start > end) && ((start > curLow) || (start > curHigh))) {
+         curHigh = high[n];
+         curLow = low[n];
+         if((cstart > cend) && ((cstart > curLow) || (cstart > curHigh))) {
          // simple continuing trend, market rate numerically decreasing
-            rate = (start > curLow) ? curLow : curHigh;
-            moveTrendEnd(nrTrends,n,time[n],rate, false);
-         } else if ((start < end) && ((start < curHigh) || (start < curLow))) {
+         
+            // rate = (start > curLow) ? curLow : curHigh;
+            // dispatch on low, record high (?) FIXME: use HA high/low values
+            rate = curHigh;
+            // NB: current trend may evolve as to parallel previous trend.
+            // FIXME: on parallel trend, fold current trend into previous trend
+            moveTrendEnd(nrTrends,n,time[n],rate, false);            
+         } else if ((cstart < cend) && ((cstart < curHigh) || (cstart < curLow))) {
          // simple continuing trend, market rate numerically increasing
-            rate = (start < curHigh) ? curHigh : curLow;
-            moveTrendEnd(nrTrends,n,time[n],rate, false);
+            // rate = (start < curHigh) ? curHigh : curLow;
+            // dispatch on high, record low (?) FIXME: use HA high/low values
+            rate = curLow;
+            // NB: current trend may evolve as to parallel previous trend.
+            // FIXME: on parallel trend, fold current trend into previous trend
+            moveTrendEnd(nrTrends,n,time[n],rate, false);            
          } else {
          // immediate reversal on Trend[nrTrends]
          // new trend start is determinable at index of previous trend end.
          // new trend end is the immediate n
          
-            const int ptedx = trendEndIndex(nrTrends);
-            const double ptedr = trendEndRate(nrTrends);
-            const double rate = (start > low[n]) ? low[n] : high[n];
-            setTrend(nrTrends++,ptedx,n,ptedr,rate);
+            const int cendx = trendEndIndex(nrTrends);
+            // const double rate = (start > low[n]) ? low[n] : high[n];
+            // similar dispatch/record semantics as in previous branches (?)
+            // FIXME: use HA high/low values
+            const double rate = (cstart > low[n]) ? high[n] : low[n];
+            setTrend(nrTrends++,cendx,n,cend,rate);
    
          }
        }
