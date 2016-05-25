@@ -90,9 +90,15 @@ double HAOpen[];
 double HABearTrc[];
 double HABullTrc[];
 double HAClose[];
-double HATick[]; // FIXME: Initialize; resize
+double HATick[];
+double HAHigh[];
+double HALow[];
 int HACount = 0;
 int HAStart = 0;
+
+// memory management
+const int rsvbars = 8;
+int bufflen;
 
 int calcHA(const int count, 
            const int start, 
@@ -106,13 +112,12 @@ int calcHA(const int count,
 // Those buffers will use an inverse indexing sequence - similar to other indicators in this program
 // contrasted to HAOpen, HABearTrc, HABullTrc, HAClose, which will use indexes approaching "0" at "oldest" tick.
 
-   double mopen, mhigh, mlow, mclose, hopen, hhigh, hlow, hclose, hmaxoc, haoprev, hacprev;
+   double mopen, mhigh, mlow, mclose, hopen, hhigh, hlow, hclose, haoprev, hacprev;
    int hidx, tickidx;
    
-   Print(StringFormat("HA Indicator %d, %d", count, start)); // DEBUG
+   // Print(StringFormat("HA Indicator %d, %d", count, start)); // DEBUG
    
    if(count > start+2) {
-   
       if(start == 0) {
       // calculate initial HA tick from market rate data
          tickidx = count-1;
@@ -137,8 +142,6 @@ int calcHA(const int count,
         haoprev = HAOpen[start];
         hacprev = HAClose[start];
       }
-      
-      
       // calculate subsequent HA tick records
       for(hidx = start+1, tickidx = (count - start - 2); hidx < count; hidx++, tickidx--) {
          mopen = open[tickidx];
@@ -148,8 +151,11 @@ int calcHA(const int count,
 
          hopen = (haoprev + hacprev) / 2;
          hclose = calcRateHAC(mopen, mhigh, mlow, mclose);
-         hhigh = MathMax(mhigh, MathMax(hopen, hclose)); // FIXME record hhigh separate of draw buffers
-         hlow = MathMin(mlow, MathMin(hopen, hclose)); // FIXME record hlow separate of draw buffers
+         hhigh = MathMax(mhigh, MathMax(hopen, hclose));
+         HAHigh[hidx] = hhigh;
+         hlow = MathMin(mlow, MathMin(hopen, hclose));
+         HALow[hidx] = hlow;
+         // Store data for visuals - HABearTrc, HABullTrc
          if(hopen < hclose) {
             HABearTrc[hidx] = hlow;
             HABullTrc[hidx] = hhigh;
@@ -161,59 +167,74 @@ int calcHA(const int count,
          haoprev = hopen;
          HAClose[hidx] = hclose;
          hacprev = hclose;
-         HATick[hidx] = tickidx;
+         HATick[hidx] = tickidx; // FIXME: Delete HATick
          // Print(StringFormat("HA Calc (%d => %d) O %f H %f L %f C %f", hidx, tickidx, hopen, hhigh, hlow, hclose)); // DEBUG
       }
       HAStart = start;
       HACount = hidx - start;
       return HACount;
    } else {
-      Print(StringFormat("HA INDICATOR ABORT %d %d", count, start)); // DEBUG
+      // Print(StringFormat("HA INDICATOR ABORT %d %d", count, start)); // DEBUG
       return 0;
    }    
 }
 
-// see also: Heikin Ashi.mq4 src - "Existing work" in MQL4 indicator development
+void resizeBuffs(const int newsz) {
+   ArrayResize(HAOpen, newsz, rsvbars);
+   ArrayResize(HABearTrc, newsz, rsvbars);
+   ArrayResize(HABullTrc, newsz, rsvbars);
+   ArrayResize(HAClose, newsz, rsvbars);
+   ArrayResize(HATick, newsz, rsvbars);
+   ArrayResize(HAHigh, newsz, rsvbars);
+   ArrayResize(HALow, newsz, rsvbars);
+   bufflen = newsz;
+}
 
 void OnInit() {
    IndicatorShortName(label);
    IndicatorDigits(Digits);
-   IndicatorBuffers(4);
+   IndicatorBuffers(7); 
+   // 4 drawn buffers, 3 undrawn
+   // 2 of the drawn bufers contain possible indicator data
+   // 1 of the undrawn buffers is not fundamentally needed
    
+   bufflen = iBars(NULL, 0);
+
    // NB: SetIndexBuffer may <not> accept a buffer of class type elements
 
-   SetIndexBuffer(0, HABearTrc);
+   SetIndexBuffer(0, HABearTrc); // not needed outside of visuals
    SetIndexStyle(0,DRAW_HISTOGRAM);
    SetIndexLabel(0,"Bear Tick Trace"); 
    SetIndexDrawBegin(0,2);
    
-   SetIndexBuffer(1, HABullTrc);
+   SetIndexBuffer(1, HABullTrc); // not needed outside of visuals
    SetIndexStyle(1,DRAW_HISTOGRAM);
    SetIndexLabel(1,"Bull Tick Trace");
    SetIndexDrawBegin(1,2);
 
    SetIndexBuffer(2, HAOpen);
-   SetIndexStyle(2,DRAW_HISTOGRAM); // X
+   SetIndexStyle(2,DRAW_HISTOGRAM);
    SetIndexLabel(2,"Bear Tick Body"); 
    SetIndexDrawBegin(2,2);
    
    SetIndexBuffer(3, HAClose);
-   SetIndexStyle(3,DRAW_HISTOGRAM); // X
+   SetIndexStyle(3,DRAW_HISTOGRAM);
    SetIndexLabel(3,"Bull Tick Body");
    SetIndexDrawBegin(3,2);
    
-   // FIXME: consider a non-zero reserve_size in the following
-   const int nbars = iBars(NULL, 0);
-   ArrayResize(HAOpen, nbars, 0);
-   ArrayResize(HABearTrc, nbars, 0);
-   ArrayResize(HABullTrc, nbars, 0);
-   ArrayResize(HAClose, nbars, 0);
-   ArrayResize(HATick, nbars, 0);
-
+   // FIXME: Delete HATick
+   SetIndexBuffer(4,HATick); // puts it under platform memory management ?
+   SetIndexBuffer(5,HAHigh); // puts it under platform memory management ?
+   SetIndexBuffer(6,HALow); // puts it under platform memory management ?
+   
+   resizeBuffs(bufflen);
+ 
    ArrayInitialize(HAOpen, dblz);
    ArrayInitialize(HABearTrc, dblz);
    ArrayInitialize(HABullTrc, dblz);
    ArrayInitialize(HAClose, dblz);
+   ArrayInitialize(HAHigh, dblz);
+   ArrayInitialize(HALow, dblz);
    ArrayInitialize(HATick, 0);
    
    // DO THIS AFTER OTHER CALLS ... (FIXME: DOCUMENTATION)
@@ -222,6 +243,8 @@ void OnInit() {
    ArraySetAsSeries(HABullTrc, false);
    ArraySetAsSeries(HAClose, false);
    ArraySetAsSeries(HATick, false);
+   ArraySetAsSeries(HAHigh, false);
+   ArraySetAsSeries(HALow, false);
 
 }
 
@@ -238,10 +261,10 @@ int OnCalculate(const int nticks,
                 const int &spread[]) {
    int haCount;
 
-   if(counted == 0) {
-      haCount = calcHA(nticks,0,open,high,low,close);
-      return haCount;
-   } else {
-      return 0; // FIXME
+   if (nticks >= (bufflen + rsvbars)) {
+      resizeBuffs(nticks + rsvbars);
    }
+
+   haCount = calcHA(nticks,0,open,high,low,close);
+   return haCount;
 }
