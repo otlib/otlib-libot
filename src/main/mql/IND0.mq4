@@ -147,6 +147,90 @@ void logDebug(const string message) {
 // called as across an 'import' definition.
 
 
+// - Heikin Ashi chart records
+
+double HAOpen[];
+double HAHigh[];
+double HALow[];
+double HAClose[];
+double HATick[]; // FIXME: Initialize; resize
+int HACount = 0;
+int HAStart = 0;
+
+// TO DO]
+int calcHA(const int count, 
+           const int start, 
+           const double &open[],
+           const double &high[],
+           const double &low[],
+           const double &close[]) {
+// Optimized Heikin Ashi calculator
+
+// NB: this HA implementation will not invert the indexing of the open, high, low, close time buffers.
+// Those buffers will use an inverse indexing sequence - similar to other indicators in this program
+// contrasted to HAOpen, HAHigh, HALow, HAClose, which will use indexes approaching "0" at "oldest" tick.
+
+   double mopen, mhigh, mlow, mclose, hopen, hhigh, hlow, hclose, hmaxoc;
+   int hidx;
+   
+   if(start+2 >= count) {
+   
+      if(start == 0) {
+      // calculate initial HA tick record
+         mopen = open[count];   // market rate open
+         mhigh = high[count];   // market rate high
+         mlow = low[count];     // market rate low
+         mclose = close[count]; // market rate close
+         if(mopen < mclose) {
+            HAHigh[0] = mlow;
+            HALow[0] = mhigh;
+         } else {
+            HAHigh[0] = mhigh;
+            HALow[0] = mlow;
+         }
+         HAOpen[0] = mopen;
+         HAClose[0] = calcRateHAC(mopen, mhigh, mlow, mclose);
+         HATick[0] = count;
+         hidx = 1;
+      } else {
+        // assume previous HA Open, High, Low, Close records exist
+        hidx = start;
+      }
+      
+      // calculate subsequent HA tick records
+      for(int n = count-1; n > start; n--) {
+         mopen = open[n];
+         mhigh = high[n];
+         mlow = low[n];
+         mclose = close[n];
+
+         hopen = (mopen + mclose) / 2;
+         hclose = calcRateHAC(mopen, mhigh, mlow, mclose);
+         hmaxoc = MathMax(hopen, hclose);
+         hhigh = MathMax(mhigh, hmaxoc);
+         hlow = MathMax(mlow, hmaxoc);
+         if(hopen < hclose) {
+            HAHigh[hidx] = mlow;
+            HALow[hidx] = mhigh;
+         } else {
+            HAHigh[hidx] = mhigh;
+            HALow[hidx] = mlow;
+         }
+         HAOpen[hidx] = hopen;
+         HAClose[hidx] = hclose;
+         HATick[hidx] = n;
+         hidx++;
+      }
+      HAStart = start;
+      HACount = hidx - start;
+      return HACount;
+   } else {
+      return 0;
+   }    
+}
+
+// - Trend Calculation
+
 void setDrawZero(const int cidx) {
    TrendDraw[cidx] = dblz;
 }
@@ -253,6 +337,7 @@ int trendEndIndex(const int tidx) {
    return TrendDrETk[tidx];
 }
 
+
 int calcTrends(const int count, 
                const int start, 
                const double &open[],
@@ -294,8 +379,9 @@ int calcTrends(const int count,
       // curLow = calcRateHLL(high[n], low[n]);
       curHigh = high[n];
       // curHigh = calcRateHHL(high[n], low[n]);
-      // rate = calcMax ? calcRateHHL(curHigh, curLow) : calcRateHLL(curHigh, curLow);
+      //  rate = calcMax ? calcRateHHL(curHigh, curLow) : calcRateHLL(curHigh, curLow);
       rate = calcMax ? curHigh : curLow;
+
       if (calcMax && (rate >= pRate)) {
       // continuing trend rate > pRate - simple calc
          logDebug(StringFormat("Simple calcMax %f [%d]", rate, n));
@@ -403,8 +489,13 @@ void OnInit() {
    ArraySetAsSeries(TrendStrT, true);
    ArraySetAsSeries(TrendEndR, true);
    ArraySetAsSeries(TrendEndT, true);
-   
-   IndicatorBuffers(4); // Prototype 1: No separate buffer for indicator lines
+   ArraySetAsSeries(HAOpen, false);
+   ArraySetAsSeries(HAHigh, false);
+   ArraySetAsSeries(HALow, false);
+   ArraySetAsSeries(HAClose, false);
+   ArraySetAsSeries(HATick, false);
+
+   IndicatorBuffers(3); // Prototype 1: No separate buffer for indicator lines (?)
    // NB: SetIndexBuffer may <not> accept a buffer of class type elements
    SetIndexBuffer(0, TrendDraw); // NB: Stored for every chart tick
    SetIndexEmptyValue(0, dblz);
@@ -426,15 +517,26 @@ void OnInit() {
    const int nbars = iBars(NULL, 0);
    const int maxTrends = nbars;
    
+   // FIXME: consider a non-zero reserve_size in the following
    ArrayResize(TrendDraw, nbars, 0);
+   ArrayResize(HAOpen, nbars, 0);
+   ArrayResize(HAHigh, nbars, 0);
+   ArrayResize(HALow, nbars, 0);
+   ArrayResize(HAClose, nbars, 0);
+   ArrayResize(HATick, nbars, 0);
    ArrayResize(TrendDrSTk, maxTrends, 0);
    ArrayResize(TrendDrETk, maxTrends, 0);
    ArrayResize(TrendStrR, maxTrends, 0);
    ArrayResize(TrendStrT, maxTrends, 0);
    ArrayResize(TrendEndR, maxTrends, 0);
    ArrayResize(TrendEndT, maxTrends, 0);
-   
+
    ArrayInitialize(TrendDraw, dblz);
+   ArrayInitialize(HAOpen, dblz);
+   ArrayInitialize(HAHigh, dblz);
+   ArrayInitialize(HALow, dblz);
+   ArrayInitialize(HAClose, dblz);
+   ArrayInitialize(HATick, 0);
    ArrayInitialize(TrendStrR, dblz);
    ArrayInitialize(TrendEndR, dblz);
    ArrayInitialize(TrendDrSTk, 0);
@@ -456,7 +558,7 @@ int OnCalculate(const int nticks,
                 const long &tick_volume[],
                 const long &volume[],
                 const int &spread[]) {
-   int toCount;
+   int toCount, haCount;
    
    logDebug("OnCalculate called");
 
@@ -464,6 +566,7 @@ int OnCalculate(const int nticks,
       toCount = nticks;
       nrTrends = calcTrends(nticks, counted, open, high, low, close, time);
       Print(StringFormat("calcTrends nrTrends %d (count, toCount %d counted %d)", nrTrends, nticks, counted)); // DEBUG
+      haCount = calcHA(nticks,counted,open,high,low,close);
       return toCount;
    } else {
       // note that this branch of program exec may be arrived at repeatedly,
@@ -511,7 +614,7 @@ int OnCalculate(const int nticks,
             // const double rate = (start > low[n]) ? low[n] : high[n];
             // similar dispatch/record semantics as in previous branches (?)
             // FIXME: use HA high/low values
-            const double rate = (cstart > low[n]) ? high[n] : low[n];
+            rate = (cstart > low[n]) ? high[n] : low[n];
             setTrend(nrTrends++,cendx,n,cend,rate);
    
          }
