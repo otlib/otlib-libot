@@ -35,7 +35,9 @@
 #property strict
 #property script_show_inputs
 #property indicator_buffers 1 // number of drawn buffers
-#property indicator_color1 clrLimeGreen  // line color, EA0 buffer 0(1)
+#property indicator_color1 clrLimeGreen  // EA0 buffer 0 (1)
+#property indicator_width1 3;
+#property indicator_style1 STYLE_SOLID;
 
 // FIXME: message "libot is not loaded" ??
 // #import "libot"
@@ -107,14 +109,32 @@ datetime TrendEndT[]; // Trend End Time   - calcTrends(), updTrends()
 double calcRateHAC(const double open, 
                    const double high, 
                    const double low, 
-                   const double close) export {
+                   const double close) {
    // calculate rate in a manner of Heikin Ashi Close
    double value = ( open + high + low + close ) / 4;
    return value;
 }
 
+/* // unused
+double calcRateHHL(const double high, 
+                   const double low) {
+   // calculate rate in a manner of Heikin Ashi Close
+   double value = ((high * 2) + low) / 3;
+   return value;
+}
 
-void logDebug(const string message) export { 
+
+double calcRateHLL(const double high, 
+                   const double low) {
+   // calculate rate in a manner of Heikin Ashi Close
+   double value = (high + (low * 2)) / 3;
+   return value;
+}
+*/
+
+
+
+void logDebug(const string message) { 
    // FIXME: Reimplement w/ a reusable preprocessor macro, optimizing the call pattern for this fn
    if (log_debug) {
       Print(message);
@@ -252,7 +272,7 @@ int calcTrends(const int count,
    nrTrends = start; // ...
    
    int sTick, pTick;
-   double rate, sRate, pRate;
+   double rate, sRate, pRate, curLow, curHigh;
    bool updsTrend = false;
 
    sRate = calcRateHAC(open[start], high[start], low[start], close[start]);
@@ -270,7 +290,12 @@ int calcTrends(const int count,
    
    for(n=start+1; n < count; n++) {
       // apply a simple high/low calculation for logical dispatch to trend filtering
-      rate = calcMax ? high[n] : low[n];
+      curLow = low[n];
+      // curLow = calcRateHLL(high[n], low[n]);
+      curHigh = high[n];
+      // curHigh = calcRateHHL(high[n], low[n]);
+      // rate = calcMax ? calcRateHHL(curHigh, curLow) : calcRateHLL(curHigh, curLow);
+      rate = calcMax ? curHigh : curLow;
       if (calcMax && (rate >= pRate)) {
       // continuing trend rate > pRate - simple calc
          logDebug(StringFormat("Simple calcMax %f [%d]", rate, n));
@@ -292,12 +317,12 @@ int calcTrends(const int count,
       } else if (!calcMax && !updsTrend &&
                   (nrTrends > 0) && 
                   (trendStartRate(nrTrends) < trendEndRate(nrTrends)) &&
-                  ((high[n] > trendEndRate(nrTrends)) || (low[n] > trendEndRate(nrTrends))) &&
-                  (trendStartRate(nrTrends) > trendEndRate(nrTrends))) {
+                  ((curHigh > trendEndRate(nrTrends)) || (curLow > trendEndRate(nrTrends))) &&
+                  (trendStartRate(nrTrends-1) > trendEndRate(nrTrends-1))) {
       // [high|low].n >= sTrend.startRate > sTrend.endRate
       // i.e trend now develops in parallel with sStrend - no longer traversing a reversal.
       // do not log as reversal. invert the traversal logic. udpate pRate, sRate, sTrend
-         pRate = (high[n] > trendEndRate(nrTrends)) ? high[n] : low[n];
+         pRate = (curHigh > trendEndRate(nrTrends)) ? curHigh : curLow;
          calcMax = true;
          // sRate = pRate;
          
@@ -309,12 +334,12 @@ int calcTrends(const int count,
       } else if (calcMax && !updsTrend &&
                   (nrTrends > 0) && 
                   (trendStartRate(nrTrends) > trendEndRate(nrTrends)) &&
-                  ((low[n] < trendEndRate(nrTrends)) || (high[n] < trendEndRate(nrTrends))) &&
-                  (trendStartRate(nrTrends) < trendEndRate(nrTrends))) {
+                  ((curLow < trendEndRate(nrTrends)) || (curHigh < trendEndRate(nrTrends))) &&
+                  (trendStartRate(nrTrends-1) < trendEndRate(nrTrends-1))) {
       // [low|high].n <= sTrend.startRate <= sTrend.endRate
       // i.e trend now develops in parallel with sStrend - no longer traversing a reversal.
       // do not log as reversal. invert the traversal logic. udpate pRate, sRate, sTrend
-         pRate = (low[n] < trendEndRate(nrTrends)) ? low[n] : high[n];
+         pRate = (curLow < trendEndRate(nrTrends)) ? curLow : curHigh;
          calcMax = false;
          // sRate = pRate;
          
@@ -343,7 +368,7 @@ int calcTrends(const int count,
          calcMax = (trendStartRate(nrTrends) <= trendEndRate(nrTrends)); // set for traversing reversal of previous trend
          nrTrends++;
          sRate = calcMax ? low[pTick] : high[pTick];
-         pRate = calcMax ? high[n] : low[n];
+         pRate = calcMax ? curHigh : curLow;
          sTick = pTick;
          pTick = n;
          logDebug(StringFormat("New calcMax %s, pRate %f, sRate %f [%d:%d]", (calcMax? "true" : "false"), pRate, sRate, sTick, pTick));
@@ -438,28 +463,38 @@ int OnCalculate(const int nticks,
    if(counted == 0) {
       toCount = nticks;
       nrTrends = calcTrends(nticks, counted, open, high, low, close, time);
-      // Print(StringFormat("calcTrends nrTrends %d (toCount/count %d/%d)", nrTrends, toCount, nticks)); // DEBUG
+      Print(StringFormat("calcTrends nrTrends %d (count, toCount %d counted %d)", nrTrends, nticks, counted)); // DEBUG
+      return toCount;
    } else {
       // note that this branch of program exec may be entered repeatedly within the duration of one market tick
       // even when the market tick is at the smallest resolution i.e. 1M
      toCount = nticks - counted; // FIXME: Parametrs named like a minomer
-     // Print(StringFormat("calcTrends for count %d ticks != 0 (to count %d) (counted %d trends)", nticks, toCount, counted)); // DEBUG
+     Print(StringFormat("calcTrends for count %d ticks != 0 (to count %d) (counted %d trends)", nticks, toCount, counted)); // DEBUG
+     
+     // TO DO : Define a forwardBuff not assigned to tick rates,
+     // as for purpose of recording rate changes at durations 
+     // less than chart period.
      
      if((toCount > 0) && (nrTrends > 0)) {
         const double start = trendStartRate(nrTrends-1);
         const double end = trendEndRate(nrTrends-1);
-        const int dtk = TrendDrSTk[nrTrends-1]; // FIXME: Define accessor fn
+        double curHigh, curLow, rate;
+        // const int dtk = TrendDrSTk[nrTrends-1]; // FIXME: Define accessor fn
         
         // FIXME: Something is breaking in this branch
         
-        for(int n=toCount; n > 0; n--) {
-         break; // FIXME
-         if((start > end) && ((start > low[n]) || (start > high[n]))) {
+        for(int n=toCount; n >= 0; n--) {
+         // break; // FIXME
+         curHigh= high[n];
+         curLow=low[n];
+         if((start > end) && ((start > curLow) || (start > curHigh))) {
          // simple continuing trend, market rate numerically decreasing
-            moveTrendEnd(nrTrends,n,time[n],low[n], false);
-         } else if ((start < end) && ((start < high[n]) || (start < low[n]))) {
+            rate = (start > curLow) ? curLow : curHigh;
+            moveTrendEnd(nrTrends,n,time[n],rate, false);
+         } else if ((start < end) && ((start < curHigh) || (start < curLow))) {
          // simple continuing trend, market rate numerically increasing
-            moveTrendEnd(nrTrends,n,time[n],high[n], false);
+            rate = (start < curHigh) ? curHigh : curLow;
+            moveTrendEnd(nrTrends,n,time[n],rate, false);
          } else {
          // immediate reversal on Trend[nrTrends]
          // new trend start is determinable at index of previous trend end.
@@ -472,9 +507,13 @@ int OnCalculate(const int nticks,
    
          }
        }
+       return counted + toCount;
+     } else {
+      // FIMXME
+      return counted;
      }
    }
-   logDebug(StringFormat("Count %d, Counted %d", nticks, counted));
+   // logDebug(StringFormat("Count %d, Counted %d", nticks, counted));
 
    
    // FIXME: calcTrends is applied only for historic analysis. 
@@ -484,5 +523,5 @@ int OnCalculate(const int nticks,
    // indicator.
    // TO DO: define updTrends(const int countDif, const int counted, ...)
    
-   return toCount; // counted
+   // return counted;
 }
