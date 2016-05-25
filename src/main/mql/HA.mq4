@@ -192,17 +192,16 @@ void OnInit() {
    SetIndexStyle(1,DRAW_HISTOGRAM, STYLE_SOLID, 1, haBullTraceColor);
    SetIndexLabel(1,"Bull Tick Trace");
    SetIndexDrawBegin(1,2);
-   
-   SetIndexBuffer(2, HAClose);
-   SetIndexStyle(2,DRAW_HISTOGRAM, STYLE_SOLID, 3, haBullBodyColor); // X
-   SetIndexLabel(2,"Bull Tick Body");  // VERIFY
+
+   SetIndexBuffer(2, HAOpen);
+   SetIndexStyle(2,DRAW_HISTOGRAM, STYLE_SOLID, 3, haBearBodyColor); // X
+   SetIndexLabel(2,"Bear Tick Body"); 
    SetIndexDrawBegin(2,2);
    
-   SetIndexBuffer(3, HAOpen);
-   SetIndexStyle(3,DRAW_HISTOGRAM, STYLE_SOLID, 3, haBearBodyColor); // X
-   SetIndexLabel(3,"Bear Tick Body"); // VERIFY
+   SetIndexBuffer(3, HAClose);
+   SetIndexStyle(3,DRAW_HISTOGRAM, STYLE_SOLID, 3, haBullBodyColor); // X
+   SetIndexLabel(3,"Bull Tick Body");
    SetIndexDrawBegin(3,2);
-
    
    // FIXME: consider a non-zero reserve_size in the following
    const int nbars = iBars(NULL, 0);
