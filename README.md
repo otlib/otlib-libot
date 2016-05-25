@@ -67,25 +67,8 @@
       indicator's single _drawn buffer_.
 
     * **Known Issues**
-        * **SCR0_IND0_DIVERGE**
-            * **Synopsis:** Market rate trend calculation diverges
-              between calculations produced with `calcTrends` in SCR0
-              and `calcTrends` in IND0. The mechanical logic
-              implemeted of the respective functions is not
-              substantially different, at this time.  
-
-            * **Description:** This indicator, in its present version,
-              is producing data values that are numerically divergent
-              from data values produced in the original SCR0
-              prototype. This issue is documented, albeit
-              rudimentarily, in the filesystem directory 
-              `assets/isstrk/SCRO_IND0_DIVERGE/` in which chart, the
-              _lime green_ indicator lines are produced with the SCR0
-              implementation and the _aqua_ hued indicator lines are
-              produced with the IND0 implementation. Notably, the IND0
-              implementation is producing _drawn indicator_ data of a
-              character _less than ideal_, contrasted to the indicator
-              data produced of the SCR0 implementation.
+        * Indicator should apply a manner of _smoothing_, to prevent
+          recording of very short reverals (e.g. period <= 2m)
 
 * `src/main/mql/clearObj.mq4`
     * **Platform:** MetaTrader 4

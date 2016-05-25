@@ -42,6 +42,8 @@
 //   int dayStartOffL();
 // #import
 
+int lastCount = 0;
+
 
 int dayStartOffT(const datetime dt) export {
 // return iBarShift for datetime dt
@@ -86,12 +88,13 @@ const double dblz   = 0.0; // use one 0.0 value for zero of type 'double'
 double TrendDraw[]; // Drawn buffer - calcTrends(), updTrends()
 // NB: TrendDraw contents are synched to clock ticks 
 // NB: TrendDraw values: either 0.0 or Trend Start Rate at tick
-double TrendSTick[]; // Synch for Trend=>TrendDraw (TBD)
+int TrendDrTk[]; // Synch for Trend=>TrendDraw (TBD)
 double TrendStrR[]; // Trend Start Rate - calcTrends(), updTrends()
-double TrendStrT[]; // Trend Start Time - calcTrends(), updTrends()
+datetime TrendStrT[]; // Trend Start Time - calcTrends(), updTrends()
 double TrendEndR[]; // Trend End Rate   - calcTrends(), updTrends()
-double TrendEndT[]; // Trend End Time   - calcTrends(), updTrends()
+datetime TrendEndT[]; // Trend End Time   - calcTrends(), updTrends()
 
+// NOTE: SetIndexBufer() not applicable for datetime[]
 
 // TO DO:
 // SigStoK[]; // Calculation similar to Stochastic Oscillator K data. TBD
@@ -128,12 +131,12 @@ void logDebug(const string message) export {
 
 void setTrend(const int tidx, // trend number
               const int cidx, // chart tick index for trend start
-              const int strT, // trend start time
+              const datetime strT, // trend start time
               const double strR,   // trend start rate
               const datetime endT, 
               const double endR) {
    TrendDraw[cidx] = strR;
-   TrendSTick[tidx] = cidx;
+   TrendDrTk[tidx] = cidx;
    
    TrendStrT[tidx] = strT;
    TrendStrR[tidx] = strR;
@@ -148,13 +151,26 @@ void setTrendStart(const int tidx, // trend number
 // NB: This function is applied in historic data analysis
 // NB: This function does not update TrendDraw for any previously specified cidx
    TrendDraw[cidx] = rate;
-   TrendSTick[tidx] = cidx;
+   TrendDrTk[tidx] = cidx;
 
    TrendStrT[tidx] = time;
    TrendStrR[tidx] = rate;
    // FIXME: also upate end time of preceeding trend, when tidx > 0 ?
 }
 
+void moveTrendStart(const int tidx, // trend number
+                    const int cidx, // new chart tick for trend start
+                    const datetime time,
+                    const double rate) {
+   int obsTick = TrendDrTk[tidx]; // ensure previous slot zeroed
+   logDebug(StringFormat("Zeroize TrendDraw for obsTick %d", obsTick));
+   setDataZero(obsTick);
+   setTrendStart(tidx, cidx, time, rate);
+   if (tidx > 0) {
+   //  Also adjust end rate, time of previous trend when tidx > 0 ?
+      setTrendEnd(tidx-1, time, rate);
+   }
+}
 
 void setTrendEnd(const int tidx, // trend number
                  const datetime time,
@@ -169,6 +185,25 @@ void setTrendEnd(const int tidx, // trend number
    // FIXME: also upate end time of following trend, when tidx < nrTrends ?
 }
 
+void setDataZero(const int cidx) {
+   TrendDraw[cidx] = dblz;
+}
+
+double trendStartRate(const int tidx) {
+   return TrendStrR[tidx];
+}
+
+datetime trendStartTime(const int tidx) {
+   return TrendStrT[tidx];
+}
+
+double trendEndRate(const int tidx) {
+   return TrendEndR[tidx];
+}
+
+datetime trendEndTime(const int tidx) {
+   return TrendEndT[tidx];
+}
 
 
 int calcTrends(const int count, 
@@ -183,6 +218,10 @@ int calcTrends(const int count,
    // beginnings of market trend reversals, storing that data in 
    // the `trends` arrays and returning the number of trends calculated.
 
+   if((count < 1)) {
+      return 0;
+   }
+   
    int sTick, pTick, obsTick, nrTrends;
    double rate, sRate, pRate;
    bool updsTrend = false;
@@ -190,11 +229,11 @@ int calcTrends(const int count,
    nrTrends = 0;
 
    sRate = calcRateHAC(open[start], high[start], low[start], close[start]);
-   pRate = sRate;
    sTick = start;
    pTick = start+1;
+   pRate = calcRateHAC(open[pTick], high[pTick], low[pTick], close[pTick]);
 
-   bool calcMax = (sRate < calcRateHAC(open[pTick], high[pTick], low[pTick], close[pTick]));  
+   bool calcMax = (pRate > sRate);  
 
    int n;
    
@@ -209,84 +248,71 @@ int calcTrends(const int count,
       // continuing trend rate > pRate - simple calc
          logDebug(StringFormat("Simple calcMax %f [%d]", rate, n));
          if(updsTrend) {
-            sRate = rate;
-            sTick = n;
-            setTrendStart(nrTrends, n, time[n], rate);
+            moveTrendStart(nrTrends, n, time[n], rate);
+         } else {
+            pRate = rate;
+            pTick = n;
          }
-         pRate = rate;
-         pTick = n;
-         TrendDraw[n] = dblz; // store zero value for drawn buffer
       } else if (!calcMax && (rate <= pRate)) {
       // continuing trend rate <= pRate - simple calc
          logDebug(StringFormat("Simple !calcMax %f [%d]", rate, n));
          if(updsTrend) {
-            sRate = rate;
-            sTick = n;
-            setTrendStart(nrTrends, n, time[n], rate);
+            moveTrendStart(nrTrends, n, time[n], rate);
+         } else {
+            pRate = rate;
+            pTick = n;
          }
-         pRate = rate;
-         pTick = n;
-         TrendDraw[n] = dblz; // store zero value for drawn buffer
       } else if (!calcMax && !updsTrend &&
                   (nrTrends > 0) && 
-                  (high[n] >= TrendStrR[nrTrends]) &&
-                  (TrendStrR[nrTrends] > TrendEndR[nrTrends])) {
+                  (high[n] > trendStartRate(nrTrends)) &&
+                  (trendStartRate(nrTrends) > trendEndRate(nrTrends))) {
       // high.n >= sTrend.startRate > sTrend.endRate
       // i.e trend now develops in parallel with sStrend - no longer traversing a reversal.
       // do not log as reversal. invert the traversal logic. udpate pRate, sRate, sTrend
          pRate = high[n];
          calcMax = true;
-         sRate = pRate;
+         // sRate = pRate;
          
-         obsTick = TrendSTick[nrTrends];
-         logDebug(StringFormat("Zeroize TrendDraw for obsTick %d", obsTick));
-         TrendDraw[obsTick] = dblz; // reset TrendDraw element at previous tick
-         
-         setTrendStart(nrTrends, n, time[n], sRate); // NB: Updates TrendDraw[n], TrendSTick[nrTrends]
-         // FIXME: zero TrendDraw[previous-tick]
-         sTick = n;
+         moveTrendStart(nrTrends, n, time[n], pRate); // NB: Updates TrendDraw[n], TrendDrTk[nrTrends]
+         // sTick = n;
          pTick = n;
          logDebug(StringFormat("Invert !calcMax rate %f => %f [%d] %s", rate, pRate, n, TimeToString(time[n])));
          updsTrend = true;
       } else if (calcMax && !updsTrend &&
                   (nrTrends > 0) && 
-                  (low[n] <= TrendStrR[nrTrends]) &&
-                  (TrendStrR[nrTrends] <= TrendEndR[nrTrends])) {
+                  (low[n] < trendStartRate(nrTrends)) &&
+                  (trendStartRate(nrTrends) < trendEndRate(nrTrends))) {
       // low.n <= sTrend.startRate <= sTrend.endRate
       // i.e trend now develops in parallel with sStrend - no longer traversing a reversal.
       // do not log as reversal. invert the traversal logic. udpate pRate, sRate, sTrend
          pRate = low[n];
          calcMax = false;
-         sRate = pRate;
+         // sRate = pRate;
          
-         obsTick = TrendSTick[nrTrends];
-         logDebug(StringFormat("Zeroize TrendDraw for obsTick %d", obsTick));
-         TrendDraw[obsTick] = dblz; // reset TrendDraw element at previous tick
-         
-         setTrendStart(nrTrends, n, time[n], sRate); // NB: Updates TrendDraw[n], TrendSTick[nrTrends]
-         sTick = n;
+         moveTrendStart(nrTrends, n, time[n], pRate); // NB: Updates TrendDraw[n], TrendDrTk[nrTrends]
+         // sTick = n;
          pTick = n;
          logDebug(StringFormat("Invert calcMax rate %f => %f [%d] %s", rate, pRate, n, TimeToString(time[n])));
          updsTrend = true;
-         TrendDraw[n] = sRate;
       } else { 
       // trend interrupted
          if(!updsTrend) {
             logDebug(StringFormat("Record Trend (%f @ %s) => (%f @ %s) [%d]", pRate, TimeToString(time[pTick]), sRate, TimeToString(time[sTick]), n));
-            setTrend(nrTrends++, pTick, time[pTick], pRate, time[sTick], sRate); // NB: Updates TrendDraw[pTick], TrendSTick[nrTrends]
+            setTrend(nrTrends, pTick, time[pTick], pRate, time[sTick], sRate); // NB: Updates TrendDraw[pTick], TrendDrTk[nrTrends]
             // sTrend = new Trend(time[pTick], pRate, time[sTick], sRate);
             // trends[nrTrends++] = sTrend;
             logDebug(StringFormat("New number of trends: %d", nrTrends));
-            TrendDraw[pTick] = pRate; // explicit TrendDraw data spec
-            TrendDraw[sTick] = sRate; // explicit TrendDraw data spec
+            // TrendDraw[pTick] = pRate; // explicit TrendDraw data spec
+            // TrendDraw[sTick] = sRate; // explicit TrendDraw data spec
          }  else {
           // defer trend initializtion, previous sTrend updated
             logDebug(StringFormat("End sTrend %d update (%f @ %s)[%d]", nrTrends, TrendStrR[nrTrends], TimeToString(TrendStrT[nrTrends]), n));
             updsTrend = false;
-            TrendDraw[n] = dblz; // store zero value for drawn buffer 
+            setDataZero(n);
          }
    
-         calcMax = (TrendStrR[nrTrends] <= TrendEndR[nrTrends]); // set for traversing reversal of previous trend
+         calcMax = (trendStartRate(nrTrends) <= trendEndRate(nrTrends)); // set for traversing reversal of previous trend
+         nrTrends++;
          sRate = calcMax ? low[pTick] : high[pTick];
          pRate = calcMax ? high[n] : low[n];
          sTick = pTick;
@@ -314,22 +340,22 @@ void OnInit() {
    IndicatorShortName(label);
    
    ArraySetAsSeries(TrendDraw, true);
-   ArraySetAsSeries(TrendSTick, true);
+   ArraySetAsSeries(TrendDrTk, true);
    ArraySetAsSeries(TrendStrR, true);
    ArraySetAsSeries(TrendStrT, true);
    ArraySetAsSeries(TrendEndR, true);
    ArraySetAsSeries(TrendEndT, true);
    
-   IndicatorBuffers(6); // Prototype 1: No separate buffer for indicator lines
+   IndicatorBuffers(4); // Prototype 1: No separate buffer for indicator lines
    // NB: SetIndexBuffer may <not> accept a buffer of class type elements
    SetIndexBuffer(0, TrendDraw); // NB: Stored for every chart tick
    SetIndexEmptyValue(0, dblz);
 
-   SetIndexBuffer(1, TrendSTick); // NB: Not Stored for every chart tick
-   SetIndexBuffer(2, TrendStrR); // NB: Not stored for every chart tick
-   SetIndexBuffer(3, TrendStrT); // NB: Not stored for every chart tick
-   SetIndexBuffer(4, TrendEndR); // NB: Not stored for every chart tick
-   SetIndexBuffer(5, TrendEndT); // NB: Not stored for every chart tick
+   // NB: This indicator also uses TrendDrTk, TrendStrT, TrendEndT.
+   // However, SetIndexBuffer is not applicable for
+   // arrays of datetime[] or int[] type
+   SetIndexBuffer(1, TrendStrR); // NB: Not stored for every chart tick
+   SetIndexBuffer(2, TrendEndR); // NB: Not stored for every chart tick
    // SetIndexBuffer(4, SigStoK[]); // TBD - calcSto
    // SetIndexBuffer(5, SigStoM[]); // TBD - calcSto
    // SetIndexBuffer(6, SigAD[]);   // TBD - calcAD
@@ -369,7 +395,7 @@ int OnCalculate(const int count,
       //        at an iterative  duration of individual market days
 
       ArrayResize(TrendDraw, count+1, 0);
-      ArrayResize(TrendSTick, maxTrends, 0);
+      ArrayResize(TrendDrTk, maxTrends, 0);
       ArrayResize(TrendStrR, maxTrends, 0);
       ArrayResize(TrendStrT, maxTrends, 0);
       ArrayResize(TrendEndR, maxTrends, 0);
@@ -378,17 +404,27 @@ int OnCalculate(const int count,
       ArrayInitialize(TrendDraw, dblz);
       ArrayInitialize(TrendStrR, dblz);
       ArrayInitialize(TrendEndR, dblz);
-      ArrayInitialize(TrendSTick, 0);
+      ArrayInitialize(TrendDrTk, 0);
       ArrayInitialize(TrendStrT, 0);
       ArrayInitialize(TrendEndT, 0);
       nrTrends = calcTrends(toCount, counted, open, high, low, close, time);
-      Print(StringFormat("calcTrends nrTrends %d", nrTrends));
+      lastCount = count;
+      Print(StringFormat("calcTrends nrTrends %d / max %d", nrTrends, maxTrends));
    } else {
      // TBD: 'count' when indicator called in realtime update
-     Print("FIXME: Skip calcTrends for count != 0");
-     nrTrends = 0;
+     nrTrends = counted;
+     toCount = count - lastCount;
+     Print(StringFormat("FIXME: Skip calcTrends for count %d ticks != 0 (last count %d, to count %d) (counted %d trends)", count, lastCount, toCount, counted));
+     const double start = trendStartRate(counted);
+     const double end = trendEndRate(counted);
+     /* for(int n=0; n ...
+     if((start > end)) {
+      if(low[0]) 
+     } else {
+     
+     } */
    }
-   logDebug(StringFormat("Count %d, Counted %d, maxTrends %d", count, counted, maxTrends));
+   logDebug(StringFormat("Count %d, Counted %d", count, counted));
 
    
    // FIXME: calcTrends is applied only for historic analysis. 
