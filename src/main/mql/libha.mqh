@@ -42,7 +42,7 @@ double HAOpen[];
 double HABearTrc[];
 double HABullTrc[];
 double HAClose[];
-double HATick[];
+int TickHA[];
 double HAHigh[];
 double HALow[];
 int HACount = 0;
@@ -56,21 +56,22 @@ int HAStart = 0;
 // The other two drawn buffesr are applied for chart visuals,
 // may be used for indicator data but see also: Data buffers HAHigh, HALow
 //
-// The third data buffer (HATick) is avaiable for synch onto series-format chart buffers
+// The third data buffer (TickHA) is avaiable for synch onto series-format chart buffers
 
 
-// memory management
+// - memory management
+
 // const int rsvbars = 8; // defined in libea.mqh
 int bufflen;
 
 int haInitBuffers(int start, const int len) {
    // return number (count) of buffers (one indexed)
+   // PrintFormat("haInitBuffers (%d .. %d)", start, len); // DEBUG
    initDrawBuffer(HABearTrc,start++,len,"Bear Tick Trace",DRAW_HISTOGRAM,2,false);
    initDrawBuffer(HABullTrc,start++,len,"Bull Tick Trace",DRAW_HISTOGRAM,2,false);
    initDrawBuffer(HAOpen,start++,len,"Bear Tick Body",DRAW_HISTOGRAM,2,false);
    initDrawBuffer(HAClose,start++,len,"Bull Tick Body",DRAW_HISTOGRAM,2,false);
-   // FIXME: define a TickHA buffer, setAsSeries true, instead of HATick
-   initDataBufferDbl(HATick,start++,len,false);
+   initDataBufferInt(TickHA,len,true,-1);
    initDataBufferDbl(HAHigh,start++,len,false);
    initDataBufferDbl(HALow,start++,len,false);
    return start;
@@ -80,12 +81,12 @@ int haInitBuffers(int start, const int len) {
 int haInitBuffersUndrawn(int start, const int len) {
    // Initialize all buffers as data buffers, without drawing configuration
    // return number (count) of buffers (one indexed)
+   // PrintFormat("haInitBuffersUndrawn (%d .. %d)", start, len); // DEBUG
    initDataBufferDbl(HABearTrc,start++,len,false);
    initDataBufferDbl(HABullTrc,start++,len,false);
    initDataBufferDbl(HAOpen,start++,len,false);
    initDataBufferDbl(HAClose,start++,len,false);
-   // FIXME: define a TickHA buffer, setAsSeries true, instead of HATick
-   initDataBufferDbl(HATick,start++,len,false);
+   initDataBufferInt(TickHA,len,true,-1);
    initDataBufferDbl(HAHigh,start++,len,false);
    initDataBufferDbl(HALow,start++,len,false);
    return start;
@@ -93,15 +94,53 @@ int haInitBuffersUndrawn(int start, const int len) {
 
 
 void haResizeBuffers(const int newsz) {
-   ArrayResize(HAOpen, newsz, rsvbars);
-   ArrayResize(HABearTrc, newsz, rsvbars);
-   ArrayResize(HABullTrc, newsz, rsvbars);
-   ArrayResize(HAClose, newsz, rsvbars);
-   ArrayResize(HATick, newsz, rsvbars);
-   ArrayResize(HAHigh, newsz, rsvbars);
-   ArrayResize(HALow, newsz, rsvbars);
-   bufflen = newsz;
+   ArrayResize(TickHA, newsz, rsvbars); // not platform managed
 }
+
+int haPadBuffers(const int count) {
+  if (count > bufflen) {
+      const int newct = count + rsvbars; // X
+      PrintFormat("Resize Buffers [HA] %d => %d", bufflen, newct); // DEBUG
+      haResizeBuffers(newct);
+      bufflen = newct;
+      return newct;
+   } else {
+      return bufflen;
+   }
+}
+
+// - accessors
+
+int getTickHA(const int idx) {
+   const int htk = TickHA[idx];
+   // PrintFormat("getTickHA(%d) => %d", idx, htk); // DEBUG
+   return htk;
+}
+
+double getTickHAOpen(const int idx) {
+   const int htk = getTickHA(idx);
+   return HAOpen[htk];
+}
+
+double getTickHAHigh(const int idx) {
+   const int htk = getTickHA(idx);
+   return HAHigh[htk];
+}
+
+
+double getTickHALow(const int idx) {
+   const int htk = getTickHA(idx);
+   return HALow[htk];
+}
+
+double getTickHAClose(const int idx) {
+   const int htk = getTickHA(idx);
+   return HAClose[htk];
+}
+
+
+
+// - calcuations
 
 int calcHA(const int count, 
            const int start, 
@@ -139,7 +178,7 @@ int calcHA(const int count,
          HAOpen[0] = haoprev;
          hacprev = calcRateHAC(mopen, mhigh, mlow, mclose);
          HAClose[0] = hacprev;
-         HATick[0] = tickidx;
+         TickHA[tickidx] = 0;
       } else {
         // assume previous HA Open, High, Low, Close records exist
         haoprev = HAOpen[start];
@@ -166,12 +205,13 @@ int calcHA(const int count,
             HABearTrc[hidx] = hhigh;
             HABullTrc[hidx] = hlow;
          }
+         // Print(StringFormat("HA Calc (%d => %d) O %f H %f L %f C %f", hidx, tickidx, hopen, hhigh, hlow, hclose)); // DEBUG
          HAOpen[hidx] = hopen;
          haoprev = hopen;
          HAClose[hidx] = hclose;
          hacprev = hclose;
-         HATick[hidx] = tickidx; // FIXME: Delete HATick
-         // Print(StringFormat("HA Calc (%d => %d) O %f H %f L %f C %f", hidx, tickidx, hopen, hhigh, hlow, hclose)); // DEBUG
+         TickHA[tickidx] = hidx;
+
       }
       HAStart = start;
       HACount = hidx - start;

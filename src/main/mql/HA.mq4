@@ -90,9 +90,7 @@ int OnCalculate(const int nticks,
                 const int &spread[]) {
    int haCount;
 
-   if (nticks >= (bufflen + rsvbars)) {
-      haResizeBuffers(nticks + rsvbars);
-   }
+   haPadBuffers(nticks);
 
    haCount = calcHA(nticks,0,open,high,low,close);
    return haCount;
@@ -106,6 +104,6 @@ int OnCalculate(const int nticks,
 //     e.c. extHaInit => OnCalculate() in this file (???)
 // 4) define runtime routines that may be called from external programs, for updating the indicator's record data
 //     e.g extCalcHA => calcHA in this file? or OnCalculate() in this file (???)
-// 5) define accessors encapsulating the array access - e.g getHAClose(...) getHACloseAS(...) latter cf. ArraySetAsSeries, HATick
+// 5) define accessors encapsulating the array access - e.g getHAClose(...) getHACloseAS(...) latter cf. ArraySetAsSeries, TickHA
 // 6) DOCUMENT HOWTO if the MT4 and MQL4 docs aren't sufficient in that regards
 //

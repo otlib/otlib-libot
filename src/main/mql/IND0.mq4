@@ -44,7 +44,7 @@
 // EA0 buffer 2 (3) : HA high=>low   - bull tick trace - HABullTrc (drawn?) [REMOVE?]
 // EA0 buffer 3 (4) : HA ..open..    - bear tick body - HAOpen     (drawn?)
 // EA0 buffer 4 (5) : HA ..close..   - bull tick body - HAClose    (drawn?)
-// EA0 buffer 5 (6) : HATick
+// EA0 buffer 5 (6) : TickHA
 // EA0 buffer 6 (7) : HAHigh
 // EA0 buffer 7 (8) : HALow
 // ... 
@@ -149,20 +149,16 @@ int nrTrends = 0;
 
 // see also: initTrendBuffs(), haInitBuffers()
 
-int trendResizeBuffers(const int newsz) {
-   // buffers applied for trend calculation
-   if(newsz > bufflen) { 
-      // ArrayResize(TrendDraw, newsz, rsvbars); // PLAFORM MANAGED
-      ArrayResize(TrendDrSTk, newsz, rsvbars);
-      ArrayResize(TrendDrETk, newsz, rsvbars);
-      // ArrayResize(TrendStrR, newsz, rsvbars);  // PLAFORM MANAGED
-      ArrayResize(TrendStrT, newsz, rsvbars);
-      // ArrayResize(TrendEndR, newsz, rsvbars);  // PLAFORM MANAGED
-      ArrayResize(TrendEndT , newsz, rsvbars); 
-      return newsz;
-   } else {
-      return bufflen;
-   }
+void trendResizeBuffers(const int newsz) {
+// resize non-platform-managed buffers
+
+   // ArrayResize(TrendDraw, newsz, rsvbars); // PLAFORM MANAGED
+   ArrayResize(TrendDrSTk, newsz, rsvbars);
+   ArrayResize(TrendDrETk, newsz, rsvbars);
+   // ArrayResize(TrendStrR, newsz, rsvbars);  // PLAFORM MANAGED
+   ArrayResize(TrendStrT, newsz, rsvbars);
+   // ArrayResize(TrendEndR, newsz, rsvbars);  // PLAFORM MANAGED
+   ArrayResize(TrendEndT , newsz, rsvbars); 
 }
 
 
@@ -177,8 +173,8 @@ int trendPadBuffers(const int count) {
    // appropriately, for all of the dynamic arrays
    // applied in this MQL Program?
    if (count > bufflen) {
-      const int newct = bufflen + rsvbars; // X
-      PrintFormat("Resize Buffers: %d => %d", bufflen, newct); // DEBUG
+      const int newct = count + rsvbars; // X
+      PrintFormat("Resize Buffers [IND0] %d => %d", bufflen, newct); // DEBUG
       trendResizeBuffers(newct);
       bufflen = newct;
       return newct;
@@ -191,7 +187,11 @@ void indResizeBuffers(const int newsz) {
    // buffers applied for HA tick calculation
    haResizeBuffers(newsz);
    trendResizeBuffers(newsz);
-   bufflen = newsz;
+}
+
+void indPadBuffers(const int newsz) {
+   haPadBuffers(newsz);
+   trendPadBuffers(newsz);  
 }
 
 
@@ -238,7 +238,7 @@ void setTrend(const int tidx, // trend number
               const int endidx, // chart tick index for trend en
               const double strR,   // trend start rate
               const double endR) {
-   PrintFormat("SetTrend(%d, %d, %d, %f, %f)", tidx, stridx, endidx, strR, endR);
+   // PrintFormat("SetTrend(%d, %d, %d, %f, %f)", tidx, stridx, endidx, strR, endR);
    // FIXME: Notice how many trends for which (endx - stridx) = 1
    TrendDraw[stridx] = strR; // FIXME array out of bounds during new trend creation in RT charting
    TrendDrSTk[tidx] = stridx;
@@ -370,10 +370,10 @@ int calcTrends(const int count,
    double rate, sRate, pRate, curLow, curHigh;
    bool updsTrend = false;
 
-   sRate = calcRateHAC(open[start], high[start], low[start], close[start]);
+   sRate = getTickHAOpen(start);
    sTick = start;
    pTick = start+1;
-   pRate = calcRateHAC(open[pTick], high[pTick], low[pTick], close[pTick]);
+   pRate = getTickHAOpen(pTick);
 
    bool calcMax = (pRate > sRate);  
 
@@ -385,19 +385,22 @@ int calcTrends(const int count,
    
    for(n=start+1; n < count; n++) {
       // apply a simple high/low calculation for logical dispatch to trend filtering
-      curLow = low[n];
+      
+      // FIXME: Define chart-indexed accessors for HA ticks, before running the following.
+      
+      curLow = getTickHALow(n); // ?
       // curLow = calcRateHLL(high[n], low[n]);
-      curHigh = high[n];
+      curHigh = getTickHAHigh(n); // ?
       // curHigh = calcRateHHL(high[n], low[n]);
       //  rate = calcMax ? calcRateHHL(curHigh, curLow) : calcRateHLL(curHigh, curLow);
-      rate = calcMax ? curHigh : curLow;
+      rate = calcMax? getTickHAOpen(n) : getTickHAClose(n); // ??
 
       if (calcMax && (rate >= pRate)) {
          // FIXME: log HA open rate
       // continuing trend rate > pRate - simple calc
          logDebug(StringFormat("Simple calcMax %f [%d]", rate, n));
          if(updsTrend) {
-            moveTrendStart(nrTrends, n, time[n], rate);
+            moveTrendStart(nrTrends, n, time[n], rate); // FIXME: curHigh instead of rate?
          } else {
             pRate = rate;
             pTick = n;
@@ -407,7 +410,7 @@ int calcTrends(const int count,
       // continuing trend rate <= pRate - simple calc
          logDebug(StringFormat("Simple !calcMax %f [%d]", rate, n));
          if(updsTrend) {
-            moveTrendStart(nrTrends, n, time[n], rate);
+            moveTrendStart(nrTrends, n, time[n], rate); // FIXME: curLow instead of rate?
          } else {
             pRate = rate;
             pTick = n;
@@ -465,7 +468,7 @@ int calcTrends(const int count,
    
          calcMax = (trendStartRate(nrTrends) <= trendEndRate(nrTrends)); // set for traversing reversal of previous trend
          nrTrends++;
-         sRate = calcMax ? low[pTick] : high[pTick];
+         sRate = calcMax ? getTickHALow(pTick) : getTickHAHigh(pTick);
          pRate = calcMax ? curHigh : curLow;
          sTick = pTick;
          pTick = n;
@@ -475,9 +478,10 @@ int calcTrends(const int count,
    
    if (nrTrends > 0) {
       n--;
+      pTick = trendEndIndex(nrTrends);
       // update last (chronologically first) trend record
       logDebug(StringFormat("Last Trend (%f @ %s) => (%f @ %s)", sRate, TimeToString(time[sTick]), pRate, TimeToString(time[n])));
-      pRate = calcMax ? high[n]: low[n];
+      pRate = calcMax ? getTickHAHigh(n): getTickHALow(n);
       // sTrend = new Trend(time[n], pRate, time[sTick], sRate);
       // trends[nrTrends++] = sTrend;
       setTrend(nrTrends++, n, sTick, pRate, sRate); // NB: Updates TrendDraw[n]
@@ -536,7 +540,7 @@ int OnCalculate(const int nticks,
                 const int &spread[]) {
    
    // PrintFormat("OnCalculate %d %d", nticks, counted); // DEBUG
-   trendPadBuffers(nticks);
+   indPadBuffers(nticks);
    
    // FIRST, call calcHA() to populate the HA data buffers
    int haCount;
@@ -611,7 +615,7 @@ int OnCalculate(const int nticks,
             rate = (cstart > low[n]) ? high[n] : low[n];
             
             // FIXME: Ensure buffers are sized acceptably 
-            trendPadBuffers(nticks + rsvbars);
+            indPadBuffers(nticks + rsvbars);
             setTrend(nrTrends++,cendx,n,cend,rate);
             // FIXME: seeing setTrend(nrTrends++,-1, 0, cend, rate);
             PrintFormat("RT - New trend %d (%f => %f) start %s", nrTrends, cend, rate, TimeToString(time[cendx]));
