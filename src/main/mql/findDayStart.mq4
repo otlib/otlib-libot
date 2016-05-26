@@ -41,7 +41,7 @@ void OnStart() {
    st.year = Year();
    st.mon = Month();
    st.day = Day();
-   st.day_of_week = DayOfWeek();
+   // st.day_of_week = DayOfWeek();
    st.day_of_year = DayOfYear();
    st.hour = 0;
    st.min = 0;
