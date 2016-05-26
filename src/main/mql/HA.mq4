@@ -61,81 +61,20 @@
 #property indicator_style4 STYLE_SOLID
 
 
-// - Line Properties as Input Parameters
-// input color haBearTraceColor = clrTomato;    // bare tick trace
-// input color haBullTraceColor = clrKhaki; // bull tick trace
-// input color haBearBodyColor = clrTomato;     // bear tick body
-// input color haBullBodyColor = clrKhaki;  // bull tick body
-
 // - Program Parameters
 const string label   = "HA";
-const double dblz   = 0.0; // use one 0.0 value for zero of type 'double'
 
 // - Code
 
 #include "libha.mqh"
 
 void OnInit() {
-   // FIXME: Revise to define void haInit(int bufferStartIdx)
-   // FIXME: Also define initDrawBuffer(&... *ptr, int nr, style, label, draw_begin=0)
-   // FIXME: Also define initDataBuffer(&... *ptr, int nr)
-   // FIXME: Also define classes DataBuffer, DrawBuffer ???
-   
    IndicatorShortName(label);
    IndicatorDigits(Digits);
-   IndicatorBuffers(7); 
-   // 4 drawn buffers, 3 undrawn
-   // 2 of the drawn bufers contain possible indicator data
-   // 1 of the undrawn buffers is not fundamentally needed
-   
+   IndicatorBuffers(7);    
    bufflen = iBars(NULL, 0);
-
-   // NB: SetIndexBuffer may <not> accept a buffer of class type elements
-
-   SetIndexBuffer(0, HABearTrc); // not needed outside of visuals
-   SetIndexStyle(0,DRAW_HISTOGRAM);
-   SetIndexLabel(0,"Bear Tick Trace"); 
-   SetIndexDrawBegin(0,2);
-   
-   SetIndexBuffer(1, HABullTrc); // not needed outside of visuals
-   SetIndexStyle(1,DRAW_HISTOGRAM);
-   SetIndexLabel(1,"Bull Tick Trace");
-   SetIndexDrawBegin(1,2);
-
-   SetIndexBuffer(2, HAOpen);
-   SetIndexStyle(2,DRAW_HISTOGRAM);
-   SetIndexLabel(2,"Bear Tick Body"); 
-   SetIndexDrawBegin(2,2);
-   
-   SetIndexBuffer(3, HAClose);
-   SetIndexStyle(3,DRAW_HISTOGRAM);
-   SetIndexLabel(3,"Bull Tick Body");
-   SetIndexDrawBegin(3,2);
-   
-   // FIXME: Delete HATick (?)
-   SetIndexBuffer(4,HATick); // puts it under platform memory management ?
-   SetIndexBuffer(5,HAHigh); // puts it under platform memory management ?
-   SetIndexBuffer(6,HALow); // puts it under platform memory management ?
-   
-   resizeBuffs(bufflen);
- 
-   ArrayInitialize(HAOpen, dblz);
-   ArrayInitialize(HABearTrc, dblz);
-   ArrayInitialize(HABullTrc, dblz);
-   ArrayInitialize(HAClose, dblz);
-   ArrayInitialize(HAHigh, dblz);
-   ArrayInitialize(HALow, dblz);
-   ArrayInitialize(HATick, 0);
-   
-   // DO THIS AFTER OTHER CALLS ... (FIXME: DOCUMENTATION)
-   ArraySetAsSeries(HAOpen, false);
-   ArraySetAsSeries(HABearTrc, false);
-   ArraySetAsSeries(HABullTrc, false);
-   ArraySetAsSeries(HAClose, false);
-   ArraySetAsSeries(HATick, false);
-   ArraySetAsSeries(HAHigh, false);
-   ArraySetAsSeries(HALow, false);
-
+   // NB: SetIndexBuffer may <not> accept a buffer of class type elements, e.g. Trend
+   haInitBuffers(0, bufflen);
 }
 
 

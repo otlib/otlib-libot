@@ -48,9 +48,42 @@ double HALow[];
 int HACount = 0;
 int HAStart = 0;
 
+// FIXME documentation 
+// 4 drawn buffers, 3 data buffers (not drawn)
+//
+// Two of the drawn bufers contain possible indicator data - HAOpen, HAClose
+//
+// The other two drawn buffesr are applied for chart visuals,
+// may be used for indicator data but see also: Data buffers HAHigh, HALow
+//
+// The third data buffer (HATick) is avaiable for synch onto series-format chart buffers
+
+
 // memory management
-const int rsvbars = 8;
+// const int rsvbars = 8; // defined in libea.mqh
 int bufflen;
+
+void haInitBuffers(int start, int len) {
+   initDrawBuffer(HABearTrc,0,len,"Bear Tick Trace",DRAW_HISTOGRAM,2,false);
+   initDrawBuffer(HABullTrc,1,len,"Bull Tick Trace",DRAW_HISTOGRAM,2,false);
+   initDrawBuffer(HAOpen,2,len,"Bear Tick Body",DRAW_HISTOGRAM,2,false);
+   initDrawBuffer(HAClose,3,len,"Bull Tick Body",DRAW_HISTOGRAM,2,false);
+   
+   initDataBufferDbl(HATick,4,len,false);
+   initDataBufferDbl(HAHigh,5,len,false);
+   initDataBufferDbl(HALow,6,len,false);
+}
+
+void resizeBuffs(const int newsz) {
+   ArrayResize(HAOpen, newsz, rsvbars);
+   ArrayResize(HABearTrc, newsz, rsvbars);
+   ArrayResize(HABullTrc, newsz, rsvbars);
+   ArrayResize(HAClose, newsz, rsvbars);
+   ArrayResize(HATick, newsz, rsvbars);
+   ArrayResize(HAHigh, newsz, rsvbars);
+   ArrayResize(HALow, newsz, rsvbars);
+   bufflen = newsz;
+}
 
 int calcHA(const int count, 
            const int start, 
@@ -129,15 +162,4 @@ int calcHA(const int count,
       // Print(StringFormat("HA INDICATOR ABORT %d %d", count, start)); // DEBUG
       return 0;
    }    
-}
-
-void resizeBuffs(const int newsz) {
-   ArrayResize(HAOpen, newsz, rsvbars);
-   ArrayResize(HABearTrc, newsz, rsvbars);
-   ArrayResize(HABullTrc, newsz, rsvbars);
-   ArrayResize(HAClose, newsz, rsvbars);
-   ArrayResize(HATick, newsz, rsvbars);
-   ArrayResize(HAHigh, newsz, rsvbars);
-   ArrayResize(HALow, newsz, rsvbars);
-   bufflen = newsz;
 }

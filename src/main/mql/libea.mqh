@@ -37,6 +37,12 @@
 input bool log_debug = false; // Log Runtime Information
 // ^ FIXME: Rexpress debug info fn w/ a preprocessor macro
 
+// - Program Parameters
+const double dblz   = 0.0; // use one 0.0 value for zero of type 'double'
+
+// - Memory Management
+const int rsvbars = 8;
+
 // functions also defined in libot.mq4 library
 // 
 // subset: functions applied in EA0 prototypes
@@ -87,4 +93,25 @@ void logDebug(const string message) {
    if (log_debug) {
       Print(message);
    }
+}
+
+
+void initDataBufferDbl(double &ptr[], int nr, int len, bool asSeries = true) {
+   // SetIndexBuffer(nr,ptr,INDICATOR_DATA); // FIXME: INDICATOR_DATA, ... not documented
+   SetIndexBuffer(nr,ptr); // FIXME: INDICATOR_DATA not documented
+   ArrayResize(ptr,len,rsvbars);
+   ArrayInitialize(ptr,dblz);
+   // DO LAST:
+   ArraySetAsSeries(ptr,asSeries);
+}
+
+void initDrawBuffer(double &ptr[], int nr, int len, string lbl, int style=DRAW_LINE, int draw_begin=0, bool asSeries=true) {
+   SetIndexBuffer(nr,ptr);
+   ArrayResize(ptr,len,rsvbars);
+   ArrayInitialize(ptr,dblz);
+   // DO LAST in array modification forms
+   ArraySetAsSeries(ptr,asSeries);
+   SetIndexStyle(nr,style);
+   SetIndexLabel(nr,lbl); 
+   SetIndexDrawBegin(nr,draw_begin);
 }
