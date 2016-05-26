@@ -135,16 +135,16 @@ void initDataBufferInt(int &ptr[], int len, bool asSeries = true, int initValue 
 
 void initDataBufferDbl(double &ptr[], int nr, int len, bool asSeries = true) {
    // SetIndexBuffer(nr,ptr,INDICATOR_DATA); // FIXME: INDICATOR_DATA, ... not documented
+   ArrayResize(ptr,len,rsvbars); // DO BEFORE SetIndexBuffer - see ArrayResize docu
    SetIndexBuffer(nr,ptr); // FIXME: INDICATOR_DATA not documented
-   ArrayResize(ptr,len,rsvbars);
    ArrayInitialize(ptr,dblz); // cannot pass interpreted value as default value. MQL is not Lisp
    // DO LAST:
    ArraySetAsSeries(ptr,asSeries);
 }
 
 void initDrawBuffer(double &ptr[], int nr, int len, string lbl, int style=DRAW_LINE, int draw_begin=0, bool asSeries=true) {
+   ArrayResize(ptr,len,rsvbars); // DO BEFORE SetIndexBuffer - see ArrayResize docu
    SetIndexBuffer(nr,ptr);
-   ArrayResize(ptr,len,rsvbars);
    ArrayInitialize(ptr,dblz);
    // DO LAST in array modification forms
    ArraySetAsSeries(ptr,asSeries);

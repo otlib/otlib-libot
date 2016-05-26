@@ -149,15 +149,35 @@ int nrTrends = 0;
 
 // see also: initTrendBuffs(), haInitBuffers()
 
-void trendResizeBuffers(const int newsz) {
+int trendResizeBuffers(const int newsz) {
    // buffers applied for trend calculation
-   ArrayResize(TrendDraw, newsz, rsvbars); // PLAFORM MANAGED ?
-   ArrayResize(TrendDrSTk, newsz, rsvbars);
-   ArrayResize(TrendDrETk, newsz, rsvbars);
-   ArrayResize(TrendStrR, newsz, rsvbars);  // PLAFORM MANAGED ?
-   ArrayResize(TrendStrT, newsz, rsvbars);
-   ArrayResize(TrendEndR, newsz, rsvbars);  // PLAFORM MANAGED ?
-   ArrayResize(TrendEndT , newsz, rsvbars);
+   if(newsz > (bufflen + rsvbars)) { // X
+      // ArrayResize(TrendDraw, newsz, rsvbars); // PLAFORM MANAGED
+      ArrayResize(TrendDrSTk, newsz, rsvbars);
+      ArrayResize(TrendDrETk, newsz, rsvbars);
+      // ArrayResize(TrendStrR, newsz, rsvbars);  // PLAFORM MANAGED
+      ArrayResize(TrendStrT, newsz, rsvbars);
+      // ArrayResize(TrendEndR, newsz, rsvbars);  // PLAFORM MANAGED
+      ArrayResize(TrendEndT , newsz, rsvbars); 
+      return newsz;
+   } else {
+      return bufflen;
+   }
+}
+
+
+int trendPadBuffers(const int count) {
+   // FIXME: too many + rsvbars
+   // FIXME: check actual array size, for one or another buffers (?)
+   const int curct = bufflen + rsvbars; // X
+   if (count >= curct) {
+      const int newct = curct + rsvbars; // X
+      PrintFormat("Resize Buffs: %d => %d", curct, newct); // DEBUG
+      trendResizeBuffers(newct);
+      return newct;
+   } else {
+      return curct;
+   }
 }
 
 void indResizeBuffers(const int newsz) {
@@ -184,7 +204,17 @@ void indResizeBuffers(const int newsz) {
 void setDrawZero(const int cidx) {
    int sz = ArraySize(TrendDraw);
    if(cidx >= sz) {
-      // FIXME: in the realtime charting, this "zeroing" behavior causes the chart lines to be redrawn in odd ways, periodically
+      // FIXME: This branch of execution may not (and should not) ever be reached
+   
+      // FIXME: in the realtime charting, this "zeroing" behavior 
+      // causes the chart lines to be redrawn in odd ways, periodically.
+      // 
+      // Best workaround? Define a separate charting geometry library, 
+      // for application onto CHART_LINE line style?
+      //    Class Line ( startTick, endTick, startRate, endRate, ...)
+      // and calculate immediate rates between startTick, endTick
+      // based on slope from startRate .. endRate
+      //
       PrintFormat("cidx %d out of bounds for TrendDraw of size %d", cidx, sz);
    } else {
       PrintFormat("Zero index %d - TrendDraw size %d",cidx, sz);
@@ -201,7 +231,9 @@ void setTrend(const int tidx, // trend number
               const int endidx, // chart tick index for trend en
               const double strR,   // trend start rate
               const double endR) {
-   TrendDraw[stridx] = strR;
+   PrintFormat("SetTrend(%d, %d, %d, %f, %f)", tidx, stridx, endidx, strR, endR);
+   // FIXME: Notice how many trends for which (endx - stridx) = 1
+   TrendDraw[stridx] = strR; // FIXME array out of bounds during new trend creation in RT charting
    TrendDrSTk[tidx] = stridx;
    TrendDraw[endidx] = endR;
    TrendDrETk[tidx] = endidx;
@@ -230,12 +262,12 @@ void moveTrendStart(const int tidx, // trend number
                     const double rate,
                     const bool movePrev=true) {
    const int obsTick = TrendDrSTk[tidx]; // ensure previous slot zeroed
-   if((obsTick>=0) && (obsTick!=cidx)) { setDrawZero(obsTick); }  
    setTrendStart(tidx, cidx, time, rate);
    if (movePrev && (tidx > 0)) {
    //  Also adjust end rate, time of previous trend when tidx > 0 ?
       moveTrendEnd(tidx-1, cidx, time, rate, false);
    }
+   if((obsTick>=0) && (obsTick!=cidx)) { setDrawZero(obsTick); }  
 }
 
 void setTrendEnd(const int tidx, // trend number
@@ -260,16 +292,26 @@ void moveTrendEnd(const int tidx, // trend number
                   const datetime time,
                   const double rate,
                   const bool moveNext=true) {
-   const int obsTick = TrendDrETk[tidx];
-   // FIXME: This zeroing behavior, though perhaps logically sound, 
-   // is not well handled in the histogram chart drawing - during 
-   // realtime charting
-   if((obsTick>=0) && (obsTick!=cidx)) { setDrawZero(obsTick); }
-   setTrendEnd(tidx, cidx, time, rate);
-   if(moveNext && (tidx+1 < nrTrends)) {
-      moveTrendStart(tidx+1, cidx, time, rate, false);
+   if((tidx >= 0) && (cidx >= 0)) {
+      const int obsTick = TrendDrETk[tidx];
+      // FIXME: This zeroing behavior, though perhaps logically sound, 
+      // is not well handled in the histogram chart drawing - during 
+      // realtime charting
+      setTrendEnd(tidx, cidx, time, rate);
+      if(moveNext && (tidx+1 < nrTrends)) {
+         moveTrendStart(tidx+1, cidx, time, rate, false);
+      }
+      if((obsTick>=0) && (obsTick!=cidx)) { setDrawZero(obsTick); }
+   } else {
+      // FIXME: Ideally, no program would reach this program branch 
+      if(tidx < 0) {
+         PrintFormat("PROGRAM ERROR - moveTrendEnd called with negative tidx: %d (cidx %d)", tidx, cidx);
+      }
+      if(cidx < 0) {
+         PrintFormat("PROGRAM ERROR - moveTrendEnd called with negative cidx: %d (tidx %d)", cidx, tidx);
+      }
+      
    }
-
 }
 
 double trendStartRate(const int tidx) {
@@ -297,6 +339,7 @@ int trendEndIndex(const int tidx) {
    return TrendDrETk[tidx];
 }
 
+// FIXME: record one of HAOpen[n] or HAClose[n] for Bear or Bull trends
 
 int calcTrends(const int count, 
                const int start, 
@@ -343,6 +386,7 @@ int calcTrends(const int count,
       rate = calcMax ? curHigh : curLow;
 
       if (calcMax && (rate >= pRate)) {
+         // FIXME: log HA open rate
       // continuing trend rate > pRate - simple calc
          logDebug(StringFormat("Simple calcMax %f [%d]", rate, n));
          if(updsTrend) {
@@ -352,6 +396,7 @@ int calcTrends(const int count,
             pTick = n;
          }
       } else if (!calcMax && (rate <= pRate)) {
+         // FIXME: log HA close rate
       // continuing trend rate <= pRate - simple calc
          logDebug(StringFormat("Simple !calcMax %f [%d]", rate, n));
          if(updsTrend) {
@@ -483,12 +528,8 @@ int OnCalculate(const int nticks,
                 const long &volume[],
                 const int &spread[]) {
    
-   PrintFormat("OnCalculate %d %d", nticks, counted); // DEBUG
-   
-   if (nticks >= (bufflen + rsvbars)) {
-      PrintFormat("Resize Buffs: %d", nticks + rsvbars); // DEBUG
-      trendResizeBuffers(nticks + rsvbars);
-   }
+   // PrintFormat("OnCalculate %d %d", nticks, counted); // DEBUG
+   trendPadBuffers(nticks);
    
    // FIRST, call calcHA() to populate the HA data buffers
    int haCount;
@@ -522,7 +563,11 @@ int OnCalculate(const int nticks,
         const double cend = trendEndRate(nrTrends); // FIXME: Note that this represents an issue concerning trend indexing
         double curHigh, curLow, rate;
         
-        for(int n=toCount; n >= 0; n--) {
+        for(int n=toCount; n > 0; n--) { // FIXME: Condering proceeding from 0 to toCount, inverting the following logic
+         // FIXME: Alternately, consider preceding from 0 to trendEndIndex(nrTrends)
+         
+         // FIXME - STATUS: OK for visuals, but this function is not "folding" parallel forward trends as needed
+         
          curHigh = high[n];
          curLow = low[n];
          // FIXME: Do not assume nrTrends is the correct trend number here ??
@@ -551,12 +596,18 @@ int OnCalculate(const int nticks,
          // new trend start is determinable at index of previous trend end.
          // new trend end is the immediate n
          
-            const int cendx = trendEndIndex(nrTrends);
+            const int cendx = trendEndIndex(nrTrends); // FIXME : returning -1
+            
             // const double rate = (start > low[n]) ? low[n] : high[n];
             // similar dispatch/record semantics as in previous branches (?)
             // FIXME: use HA high/low values
             rate = (cstart > low[n]) ? high[n] : low[n];
+            
+            // FIXME: Ensure buffers are sized acceptably 
+            trendPadBuffers(nticks + rsvbars);
             setTrend(nrTrends++,cendx,n,cend,rate);
+            // FIXME: seeing setTrend(nrTrends++,-1, 0, cend, rate);
+            PrintFormat("RT - New trend %d (%f => %f) start %s", nrTrends, cend, rate, TimeToString(time[cendx]));
          } // if
        } // for
        return counted + toCount;
