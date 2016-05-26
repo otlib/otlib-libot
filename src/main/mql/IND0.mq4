@@ -37,12 +37,6 @@
 #property indicator_chart_window
 #property indicator_buffers 5 // number of drawn buffers (?)
 
-// FIXME: message "libot is not loaded" ??
-// #import "libot"
-//   int dayStartOffL();
-// #import
-
-
 // EA0 indicator buffers
 //
 // EA0 buffer 0 (1) : market trends (drawn)
@@ -144,7 +138,8 @@ datetime TrendEndT[]; // Trend End Time   - calcTrends(), updTrends()
 #property indicator_style5 STYLE_SOLID
 
 // - Input Parameters
-input bool log_debug = false; // Log Runtime Information
+// input bool log_debug = false; // Log Runtime Information
+// ^ FIXME: defined in libea.mqh
 
 
 // - Program Parameters
@@ -158,6 +153,16 @@ int bufflen;
 int nrTrends = 0;
 
 // - Utility Functions
+
+
+// #import "libot"
+//   int dayStartOffL();
+//   double calcRateHAC(double o, double h, double l, double c); // ?
+// #import
+// FIXME: Issues with importing some functions? calcRateHAC e.g
+
+#include "libea.mqh"
+
 
 // - Utility Functions - Memory Management
 
@@ -181,52 +186,6 @@ void resizeBuffs(const int newsz) {
    ArrayResize(TrendEndT , newsz, rsvbars);
    
    bufflen = newsz;
-}
-
-// - Utility Functions - Time
-
-int dayStartOffT(const datetime dt) export {
-// return iBarShift for datetime dt
-// using current chart and curren timeframe
-   return iBarShift(NULL, 0, dt, false);
-}
-
-int dayStartOffL() export {
-// return iBarShift for datetime at start of day, local time
-// using current chart and current timeframe
-   MqlDateTime st;
-   st.year = Year();
-   st.mon = Month();
-   st.day = Day();
-   st.day_of_week = DayOfWeek();
-   st.day_of_year = DayOfYear();
-   st.hour = 0;
-   st.min = 0;
-   st.sec = 0;
-   st.day_of_week = 1;
-   datetime dt = StructToTime(st);
-   // FIXME: Compute offset btw server local time and dt as provided here
-   return dayStartOffT(dt);
-}
-
-// - Utility Functions - Rate Calculation
-
-double calcRateHAC(const double open, 
-                   const double high, 
-                   const double low, 
-                   const double close) {
-// calculate rate in a manner of Heikin Ashi Close
-   double value = ( open + high + low + close ) / 4;
-   return value;
-}
-
-// - Utility Functions - Program Utility
-
-void logDebug(const string message) { 
-   // FIXME: Reimplement w/ a reusable preprocessor macro, optimizing the call pattern for this fn
-   if (log_debug) {
-      Print(message);
-   }
 }
 
 

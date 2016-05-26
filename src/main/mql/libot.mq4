@@ -33,6 +33,7 @@
 #property version   "1.00"
 #property strict
 
+#include "libea.mqh"
 
 // - curency pairs
 
@@ -48,33 +49,6 @@ int errorNotify(const string message) export {
    return MessageBox(message,"Error",MB_OKCANCEL);
 }
 */
-
-
-// - charts
-
-int dayStartOffT(const datetime dt) export {
-// return iBarShift for datetime dt
-// using current chart and curren timeframe
-   return iBarShift(NULL, 0, dt, false);
-}
-
-int dayStartOffL() export {
-// return iBarShift for datetime at start of day, local time
-// using current chart and curren timeframe
-   MqlDateTime st;
-   st.year = Year();
-   st.mon = Month();
-   st.day = Day();
-   st.day_of_week = DayOfWeek();
-   st.day_of_year = DayOfYear();
-   st.hour = 0;
-   st.min = 0;
-   st.sec = 0;
-   st.day_of_week = 1;
-   datetime dt = StructToTime(st);
-   // FIXME: Compute offset btw server local time and dt as provided here
-   return dayStartOffT(dt);
-}
 
 
 // - market information
@@ -138,3 +112,4 @@ double getSpreadForS(const string symbol) export {
    double offer = getOfferPForS(symbol);
    return ask - offer;
 }
+
