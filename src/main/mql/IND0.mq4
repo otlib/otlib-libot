@@ -69,19 +69,6 @@
 // dataCCI ?
 
 
-// - Buffers - HA
-
-double HAOpen[];
-double HABearTrc[];
-double HABullTrc[];
-double HAClose[];
-double HATick[];
-double HAHigh[];
-double HALow[];
-int HACount = 0;
-int HAStart = 0;
-
-
 // - Buffers - Trends
 //
 // NB: It appears that when a variable sized array buffer is registered 
@@ -143,39 +130,25 @@ datetime TrendEndT[]; // Trend End Time   - calcTrends(), updTrends()
 
 
 // - Program Parameters
+
 // convenience
 const string label   = "IND0";
-const double dblz   = 0.0; // use one 0.0 value for zero of type 'double'
-// memory management
-const int rsvbars = 8;
-int bufflen;
+
 // application logic
 int nrTrends = 0;
 
 // - Utility Functions
 
-
-// #import "libot"
-//   int dayStartOffL();
-//   double calcRateHAC(double o, double h, double l, double c); // ?
-// #import
-// FIXME: Issues with importing some functions? calcRateHAC e.g
-
 #include "libea.mqh"
+#include "libha.mqh"
 
 
 // - Utility Functions - Memory Management
 
-void resizeBuffs(const int newsz) {
+void indResizeBuffers(const int newsz) {
    // buffers applied for HA tick calculation
-   ArrayResize(HAOpen, newsz, rsvbars);
-   ArrayResize(HABearTrc, newsz, rsvbars);
-   ArrayResize(HABullTrc, newsz, rsvbars);
-   ArrayResize(HAClose, newsz, rsvbars);
-   ArrayResize(HATick, newsz, rsvbars);
-   ArrayResize(HAHigh, newsz, rsvbars);
-   ArrayResize(HALow, newsz, rsvbars);
-
+   haResizeBuffers(newsz);
+   
    // buffers applied for trend calculation
    ArrayResize(TrendDraw, newsz, rsvbars);
    ArrayResize(TrendDrSTk, newsz, rsvbars);
@@ -191,90 +164,11 @@ void resizeBuffs(const int newsz) {
 
 // - Code - OTLIB HA Indicator
 
-// NB: See also ./HA.mq4 - ostensibly, keep it synchronized with this source file
-
-int calcHA(const int count, 
-           const int start, 
-           const double &open[],
-           const double &high[],
-           const double &low[],
-           const double &close[]) {
-// Optimized Heikin Ashi calculator
-
-// NB: this HA implementation will not invert the indexing of the open, high, low, close time buffers.
-// Those buffers will use an inverse indexing sequence - similar to other indicators in this program
-// contrasted to HAOpen, HABearTrc, HABullTrc, HAClose, which will use indexes approaching "0" at "oldest" tick.
-
-   double mopen, mhigh, mlow, mclose, hopen, hhigh, hlow, hclose, haoprev, hacprev;
-   int hidx, tickidx;
-   
-   // Print(StringFormat("HA Indicator %d, %d", count, start)); // DEBUG
-   
-   if(count > start+2) {
-      if(start == 0) {
-      // calculate initial HA tick from market rate data
-         tickidx = count-1;
-         mopen = open[tickidx];   // market rate open
-         mhigh = high[tickidx];   // market rate high
-         mlow = low[tickidx];     // market rate low
-         mclose = close[tickidx]; // market rate close
-         if(mopen < mclose) {
-            HABearTrc[0] = mlow; 
-            HABullTrc[0] = mhigh;
-         } else {
-            HABearTrc[0] = mhigh;
-            HABullTrc[0] = mlow;
-         }
-         haoprev = mopen;
-         HAOpen[0] = haoprev;
-         hacprev = calcRateHAC(mopen, mhigh, mlow, mclose);
-         HAClose[0] = hacprev;
-         HATick[0] = tickidx;
-      } else {
-        // assume previous HA Open, High, Low, Close records exist
-        haoprev = HAOpen[start];
-        hacprev = HAClose[start];
-      }
-      // calculate subsequent HA tick records
-      for(hidx = start+1, tickidx = (count - start - 2); hidx < count; hidx++, tickidx--) {
-         mopen = open[tickidx];
-         mhigh = high[tickidx];
-         mlow = low[tickidx];
-         mclose = close[tickidx];
-
-         hopen = (haoprev + hacprev) / 2;
-         hclose = calcRateHAC(mopen, mhigh, mlow, mclose);
-         hhigh = MathMax(mhigh, MathMax(hopen, hclose));
-         HAHigh[hidx] = hhigh;
-         hlow = MathMin(mlow, MathMin(hopen, hclose));
-         HALow[hidx] = hlow;
-         // Store data for visuals - HABearTrc, HABullTrc
-         if(hopen < hclose) {
-            HABearTrc[hidx] = hlow;
-            HABullTrc[hidx] = hhigh;
-         } else {
-            HABearTrc[hidx] = hhigh;
-            HABullTrc[hidx] = hlow;
-         }
-         HAOpen[hidx] = hopen;
-         haoprev = hopen;
-         HAClose[hidx] = hclose;
-         hacprev = hclose;
-         HATick[hidx] = tickidx; // FIXME: Delete HATick
-         // Print(StringFormat("HA Calc (%d => %d) O %f H %f L %f C %f", hidx, tickidx, hopen, hhigh, hlow, hclose)); // DEBUG
-      }
-      HAStart = start;
-      HACount = hidx - start;
-      return HACount;
-   } else {
-      // Print(StringFormat("HA INDICATOR ABORT %d %d", count, start)); // DEBUG
-      return 0;
-   }    
-}
-
+// NB: See also ./HA.mq4, ./libha.mqh
 
 // - Code - OTLIB Trend Calculation
 
+// FIXME: move to librend.mqh
 
 // FIXME: Cannot define calcTrends in a library and import it?
 // Compiler emits a message, "Constant variable cannot be passed 
@@ -534,63 +428,25 @@ void OnInit() {
    IndicatorDigits(Digits);
    IndicatorBuffers(8);
 
-   // FIXME: "Weirdness" in integrated HA draw - so, do not draw the HA in IND0
-
-   // Trend Data Buffers - Drawn Bufer Init
-
-   SetIndexBuffer(0, TrendDraw);
-   SetIndexEmptyValue(0, dblz); // ?!...
-   SetIndexStyle(0, DRAW_SECTION);
-   SetIndexLabel(0, "Reversals");
-   SetIndexDrawBegin(0, 0);
-
-   // HA Data Buffers - Drawn, Undrawn Buffer Init
-   
-   SetIndexBuffer(1, HABearTrc); // not needed outside of visuals
-   SetIndexEmptyValue(1, EMPTY_VALUE); // ?!...
-   SetIndexStyle(1,DRAW_HISTOGRAM);
-   SetIndexLabel(1,"Bear Tick Trace"); 
-   SetIndexDrawBegin(1,2);
-   
-   SetIndexBuffer(2, HABullTrc); // not needed outside of visuals
-   SetIndexEmptyValue(2, EMPTY_VALUE); // ?!...
-   SetIndexStyle(2,DRAW_HISTOGRAM);
-   SetIndexLabel(2,"Bull Tick Trace");
-   SetIndexDrawBegin(2,2);
-
-   SetIndexBuffer(3, HAOpen);
-   SetIndexEmptyValue(3, EMPTY_VALUE); // ?!...
-   SetIndexStyle(3,DRAW_HISTOGRAM);
-   SetIndexLabel(3,"Bear Tick Body"); 
-   SetIndexDrawBegin(3,2);
-   
-   SetIndexBuffer(4, HAClose);
-   SetIndexEmptyValue(4, EMPTY_VALUE); // ?!...
-   SetIndexStyle(4,DRAW_HISTOGRAM);
-   SetIndexLabel(4,"Bull Tick Body");
-   SetIndexDrawBegin(4,2);
-   
-   // Undrawn HA bufers
-   SetIndexBuffer(5,HATick); // puts it under platform memory management ?
-   SetIndexBuffer(6,HAHigh); // puts it under platform memory management ?
-   SetIndexBuffer(7,HALow); // puts it under platform memory management ?
+   // FIXME: "Weirdness" in integrated HA draw
 
    // Memory Management
    bufflen = iBars(NULL, 0);
+
+   // Trend Data Buffers - Drawn Bufer Init
+   // FIXME: move to trendInitBuffers(0,bufflen)
+   initDrawBuffer(TrendDraw,0,bufflen,"Reersals",DRAW_SECTION);
+
+   // HA Data Buffers - Drawn, Undrawn Buffer Init
+   int nrHABuffs = haInitBuffers(1,bufflen);
+
    int maxTrends = bufflen; // FIXME : REMOVE ?
-   resizeBuffs(bufflen);
+   // indResizeBuffers(bufflen); // DO NOT during oninit
    // ^ DO BEFORE ArrayInitialize(), ArraySetAsSeries()
 
    // Array Initialization
    
    ArrayInitialize(TrendDraw, dblz);
-   ArrayInitialize(HABearTrc, dblz);
-   ArrayInitialize(HABullTrc, dblz);
-   ArrayInitialize(HAOpen, dblz);
-   ArrayInitialize(HAHigh, dblz);
-   ArrayInitialize(HALow, dblz);
-   ArrayInitialize(HAClose, dblz);
-   ArrayInitialize(HATick, 0);
    ArrayInitialize(TrendStrR, dblz);
    ArrayInitialize(TrendEndR, dblz);
    ArrayInitialize(TrendDrSTk, 0);
@@ -600,13 +456,6 @@ void OnInit() {
 
    // NB: Call ArraySetAsSeries after previous
    ArraySetAsSeries(TrendDraw, true);
-   ArraySetAsSeries(HABearTrc, false);
-   ArraySetAsSeries(HABullTrc, false);
-   ArraySetAsSeries(HAOpen, false);
-   ArraySetAsSeries(HAHigh, false);
-   ArraySetAsSeries(HALow, false);
-   ArraySetAsSeries(HAClose, false);
-   ArraySetAsSeries(HATick, false);
    ArraySetAsSeries(TrendDrSTk, true);
    ArraySetAsSeries(TrendDrETk, true);
    ArraySetAsSeries(TrendStrR, true);
@@ -630,7 +479,7 @@ int OnCalculate(const int nticks,
    logDebug("OnCalculate called");
    if (nticks >= (bufflen + rsvbars)) {
       // PrintFormat("Resize Buffs: ~D", nticks + rsvbars); // DEBUG
-      resizeBuffs(nticks + rsvbars);
+      indResizeBuffers(nticks + rsvbars);
    }
    
    // FIRST, call calcHA() to populate the HA data buffers
