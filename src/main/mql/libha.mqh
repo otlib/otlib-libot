@@ -63,18 +63,34 @@ int HAStart = 0;
 // const int rsvbars = 8; // defined in libea.mqh
 int bufflen;
 
-int haInitBuffers(int start, int len) {
+int haInitBuffers(int start, const int len) {
    // return number (count) of buffers (one indexed)
-   initDrawBuffer(HABearTrc,0,len,"Bear Tick Trace",DRAW_HISTOGRAM,2,false);
-   initDrawBuffer(HABullTrc,1,len,"Bull Tick Trace",DRAW_HISTOGRAM,2,false);
-   initDrawBuffer(HAOpen,2,len,"Bear Tick Body",DRAW_HISTOGRAM,2,false);
-   initDrawBuffer(HAClose,3,len,"Bull Tick Body",DRAW_HISTOGRAM,2,false);
-   
-   initDataBufferDbl(HATick,4,len,false);
-   initDataBufferDbl(HAHigh,5,len,false);
-   initDataBufferDbl(HALow,6,len,false);
-   return 7;
+   initDrawBuffer(HABearTrc,start++,len,"Bear Tick Trace",DRAW_HISTOGRAM,2,false);
+   initDrawBuffer(HABullTrc,start++,len,"Bull Tick Trace",DRAW_HISTOGRAM,2,false);
+   initDrawBuffer(HAOpen,start++,len,"Bear Tick Body",DRAW_HISTOGRAM,2,false);
+   initDrawBuffer(HAClose,start++,len,"Bull Tick Body",DRAW_HISTOGRAM,2,false);
+   // FIXME: define a TickHA buffer, setAsSeries true, instead of HATick
+   initDataBufferDbl(HATick,start++,len,false);
+   initDataBufferDbl(HAHigh,start++,len,false);
+   initDataBufferDbl(HALow,start++,len,false);
+   return start;
 }
+
+
+int haInitBuffersUndrawn(int start, const int len) {
+   // Initialize all buffers as data buffers, without drawing configuration
+   // return number (count) of buffers (one indexed)
+   initDataBufferDbl(HABearTrc,start++,len,false);
+   initDataBufferDbl(HABullTrc,start++,len,false);
+   initDataBufferDbl(HAOpen,start++,len,false);
+   initDataBufferDbl(HAClose,start++,len,false);
+   // FIXME: define a TickHA buffer, setAsSeries true, instead of HATick
+   initDataBufferDbl(HATick,start++,len,false);
+   initDataBufferDbl(HAHigh,start++,len,false);
+   initDataBufferDbl(HALow,start++,len,false);
+   return start;
+}
+
 
 void haResizeBuffers(const int newsz) {
    ArrayResize(HAOpen, newsz, rsvbars);

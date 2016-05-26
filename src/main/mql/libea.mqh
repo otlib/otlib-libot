@@ -95,6 +95,43 @@ void logDebug(const string message) {
    }
 }
 
+// datetime dtbuff[][512]; // ? pointers & references in MQL4 ?
+// const MqlDateTime dtzs;
+// const datetime dtz = StructToTime(dtzs); 
+
+// datetime dtz; // heap allocated (FIXME)
+MqlDateTime dtzs; // heap allocated (FIXME)
+datetime dtz; // heap allocated (FIXME)
+bool dtzok = false;
+
+void initDataBufferDT(datetime &ptr[], int len, bool asSeries = true) {
+   if(!dtzok) {   
+      dtzs.year = 0;
+      dtzs.mon = 0;
+      dtzs.day = 0;
+      dtzs.hour = 0;
+      dtzs.min = 0;
+      dtzs.sec = 0;
+      dtzs.day_of_week = 0;
+      dtzs.day_of_year = 0;
+      dtz = StructToTime(dtzs); 
+      dtzok = true;
+   }
+
+   ArrayResize(ptr,len,rsvbars);
+   ArrayInitialize(ptr,dtz);
+   // DO LAST:
+   ArraySetAsSeries(ptr,asSeries);
+   // FIXME: buffer must be manually resized
+}
+
+void initDataBufferInt(int &ptr[], int len, bool asSeries = true) {
+   ArrayResize(ptr,len,rsvbars);
+   ArrayInitialize(ptr,dtz); // FIXME: Define a DT alternative
+   // DO LAST:
+   ArraySetAsSeries(ptr,asSeries);
+   // FIXME: buffer must be manually resized
+}
 
 void initDataBufferDbl(double &ptr[], int nr, int len, bool asSeries = true) {
    // SetIndexBuffer(nr,ptr,INDICATOR_DATA); // FIXME: INDICATOR_DATA, ... not documented

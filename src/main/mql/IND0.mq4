@@ -35,7 +35,7 @@
 #property strict
 #property script_show_inputs
 #property indicator_chart_window
-#property indicator_buffers 5 // number of drawn buffers (?)
+#property indicator_buffers 1 // number of drawn buffers
 
 // EA0 indicator buffers
 //
@@ -108,21 +108,23 @@ datetime TrendEndT[]; // Trend End Time   - calcTrends(), updTrends()
 #property indicator_width1 3
 #property indicator_style1 STYLE_SOLID
 
-#property indicator_color2 clrTomato
-#property indicator_width2 1
-#property indicator_style2 STYLE_SOLID
+// HA buffers now not drawn in IND0
 
-#property indicator_color3 clrKhaki
-#property indicator_width3 1
-#property indicator_style3 STYLE_SOLID
+//#property indicator_color2 clrTomato
+//#property indicator_width2 1
+//#property indicator_style2 STYLE_SOLID
 
-#property indicator_color4 clrTomato
-#property indicator_width4 3
-#property indicator_style4 STYLE_SOLID
+//#property indicator_color3 clrKhaki
+//#property indicator_width3 1
+//#property indicator_style3 STYLE_SOLID
 
-#property indicator_color5 clrKhaki
-#property indicator_width5 3
-#property indicator_style5 STYLE_SOLID
+//#property indicator_color4 clrTomato
+//#property indicator_width4 3
+//#property indicator_style4 STYLE_SOLID
+
+//#property indicator_color5 clrKhaki
+//#property indicator_width5 3
+//#property indicator_style5 STYLE_SOLID
 
 // - Input Parameters
 // input bool log_debug = false; // Log Runtime Information
@@ -145,19 +147,23 @@ int nrTrends = 0;
 
 // - Utility Functions - Memory Management
 
+// see also: initTrendBuffs(), haInitBuffers()
+
+void trendResizeBuffers(const int newsz) {
+   // buffers applied for trend calculation
+   ArrayResize(TrendDraw, newsz, rsvbars); // PLAFORM MANAGED ?
+   ArrayResize(TrendDrSTk, newsz, rsvbars);
+   ArrayResize(TrendDrETk, newsz, rsvbars);
+   ArrayResize(TrendStrR, newsz, rsvbars);  // PLAFORM MANAGED ?
+   ArrayResize(TrendStrT, newsz, rsvbars);
+   ArrayResize(TrendEndR, newsz, rsvbars);  // PLAFORM MANAGED ?
+   ArrayResize(TrendEndT , newsz, rsvbars);
+}
+
 void indResizeBuffers(const int newsz) {
    // buffers applied for HA tick calculation
    haResizeBuffers(newsz);
-   
-   // buffers applied for trend calculation
-   ArrayResize(TrendDraw, newsz, rsvbars);
-   ArrayResize(TrendDrSTk, newsz, rsvbars);
-   ArrayResize(TrendDrETk, newsz, rsvbars);
-   ArrayResize(TrendStrR, newsz, rsvbars);
-   ArrayResize(TrendStrT, newsz, rsvbars);
-   ArrayResize(TrendEndR, newsz, rsvbars);
-   ArrayResize(TrendEndT , newsz, rsvbars);
-   
+   trendResizeBuffers(newsz);
    bufflen = newsz;
 }
 
@@ -423,6 +429,21 @@ int calcTrends(const int count,
 
 // - Code - Event Handling
 
+int initTrendBuffs(int start,const int len) {
+   // Trend Data Buffers - Drawn Bufer Init
+   // FIXME: move to trendInitBuffers(0,bufflen)
+   initDrawBuffer(TrendDraw,start++,len,"Reversals",DRAW_SECTION);
+   // FIXME: Can DRAW_SECTION and DRAW_HISTORGRAM buffers coexist in the same program?
+   
+   initDataBufferDbl(TrendStrR,start++,len); // not clock synchd
+   initDataBufferDT(TrendStrT,len); // MANUALLY UPDATE
+   initDataBufferDbl(TrendEndR,start++,len); // not clock synchd
+   initDataBufferDT(TrendEndT,len); // MANUALLY UDPATE
+   initDataBufferInt(TrendDrSTk,len); // MANUALLY UPDATE
+   initDataBufferInt(TrendDrETk,len); // MANUALLY UPDATE
+   return start;
+}
+ 
 void OnInit() {
    IndicatorShortName(label);
    IndicatorDigits(Digits);
@@ -433,36 +454,11 @@ void OnInit() {
    // Memory Management
    bufflen = iBars(NULL, 0);
 
-   // Trend Data Buffers - Drawn Bufer Init
-   // FIXME: move to trendInitBuffers(0,bufflen)
-   initDrawBuffer(TrendDraw,0,bufflen,"Reersals",DRAW_SECTION);
-
-   // HA Data Buffers - Drawn, Undrawn Buffer Init
-   int nrHABuffs = haInitBuffers(1,bufflen);
-
-   int maxTrends = bufflen; // FIXME : REMOVE ?
-   // indResizeBuffers(bufflen); // DO NOT during oninit
-   // ^ DO BEFORE ArrayInitialize(), ArraySetAsSeries()
-
-   // Array Initialization
+   // Trend buffers - Drawn, Undrawn Buffer Init
+   int nrdbuffs = initTrendBuffs(0, bufflen);
+   // HA Buffers - Undrawn Buffer Init
+   nrdbuffs = haInitBuffersUndrawn(nrdbuffs,bufflen);
    
-   ArrayInitialize(TrendDraw, dblz);
-   ArrayInitialize(TrendStrR, dblz);
-   ArrayInitialize(TrendEndR, dblz);
-   ArrayInitialize(TrendDrSTk, 0);
-   ArrayInitialize(TrendDrETk, 0);
-   ArrayInitialize(TrendStrT, 0);
-   ArrayInitialize(TrendEndT, 0);
-
-   // NB: Call ArraySetAsSeries after previous
-   ArraySetAsSeries(TrendDraw, true);
-   ArraySetAsSeries(TrendDrSTk, true);
-   ArraySetAsSeries(TrendDrETk, true);
-   ArraySetAsSeries(TrendStrR, true);
-   ArraySetAsSeries(TrendStrT, true);
-   ArraySetAsSeries(TrendEndR, true);
-   ArraySetAsSeries(TrendEndT, true);
- 
    logDebug("OnInit complete");
 }
 
@@ -476,18 +472,18 @@ int OnCalculate(const int nticks,
                 const long &tick_volume[],
                 const long &volume[],
                 const int &spread[]) {
-   logDebug("OnCalculate called");
+   
+   PrintFormat("OnCalculate %d %d", nticks, counted); // DEBUG
+   
    if (nticks >= (bufflen + rsvbars)) {
-      // PrintFormat("Resize Buffs: ~D", nticks + rsvbars); // DEBUG
-      indResizeBuffers(nticks + rsvbars);
+      PrintFormat("Resize Buffs: ~D", nticks + rsvbars); // DEBUG
+      trendResizeBuffers(nticks + rsvbars);
    }
    
    // FIRST, call calcHA() to populate the HA data buffers
    int haCount;
    haCount = calcHA(nticks,counted,open,high,low,close);
 
-   return haCount;
-   // FIXME: HA integration not "Working Out" !
    
    // NEXT, call calcTrends() for ...
    int toCount;
@@ -496,7 +492,9 @@ int OnCalculate(const int nticks,
       nrTrends = calcTrends(nticks, counted, open, high, low, close, time);
       // Print(StringFormat("calcTrends nrTrends %d (count, toCount %d counted %d)", nrTrends, nticks, counted)); // DEBUG
       return toCount;
-   } else {
+   } else if (nticks > counted) {
+      // FIXME: Effectively this branch of code won't be executed at any resolution narrower than the chart timeframe
+      
      // note that this branch of program exec may be arrived at repeatedly,
      // at a duration less than the minimum possible chart resolution
      toCount = nticks - counted; // FIXME: Parametrs named like a minomer
@@ -552,7 +550,7 @@ int OnCalculate(const int nticks,
       // FIMXME
       return counted;
      }
-   }
+   } else { return counted; }
    // logDebug(StringFormat("Count %d, Counted %d", nticks, counted));
 
    
