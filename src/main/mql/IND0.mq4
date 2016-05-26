@@ -151,7 +151,7 @@ int nrTrends = 0;
 
 int trendResizeBuffers(const int newsz) {
    // buffers applied for trend calculation
-   if(newsz > (bufflen + rsvbars)) { // X
+   if(newsz > bufflen) { 
       // ArrayResize(TrendDraw, newsz, rsvbars); // PLAFORM MANAGED
       ArrayResize(TrendDrSTk, newsz, rsvbars);
       ArrayResize(TrendDrETk, newsz, rsvbars);
@@ -167,16 +167,23 @@ int trendResizeBuffers(const int newsz) {
 
 
 int trendPadBuffers(const int count) {
-   // FIXME: too many + rsvbars
-   // FIXME: check actual array size, for one or another buffers (?)
-   const int curct = bufflen + rsvbars; // X
-   if (count >= curct) {
-      const int newct = curct + rsvbars; // X
-      PrintFormat("Resize Buffs: %d => %d", curct, newct); // DEBUG
+   // FIXME: Need to address long-term effects of 
+   // indef. buffer resize for non-indexed buffers
+   // in long-running trading sessions ????? *
+   //
+   // (FIXME) ... with or without defiing a buffer ring structure
+   //
+   // (FIXME DOCUMENTATION) * Does MQL4 not handle this
+   // appropriately, for all of the dynamic arrays
+   // applied in this MQL Program?
+   if (count > bufflen) {
+      const int newct = bufflen + rsvbars; // X
+      PrintFormat("Resize Buffers: %d => %d", bufflen, newct); // DEBUG
       trendResizeBuffers(newct);
+      bufflen = newct;
       return newct;
    } else {
-      return curct;
+      return bufflen;
    }
 }
 

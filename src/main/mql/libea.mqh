@@ -41,7 +41,7 @@ input bool log_debug = false; // Log Runtime Information
 const double dblz   = 0.0; // use one 0.0 value for zero of type 'double'
 
 // - Memory Management
-const int rsvbars = 8;
+const int rsvbars = 512;
 
 // functions also defined in libot.mq4 library
 // 
