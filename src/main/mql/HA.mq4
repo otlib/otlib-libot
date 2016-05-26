@@ -73,123 +73,14 @@ const double dblz   = 0.0; // use one 0.0 value for zero of type 'double'
 
 // - Code
 
-double calcRateHAC(const double open, 
-                   const double high, 
-                   const double low, 
-                   const double close) {
-   // calculate rate in a manner of Heikin Ashi Close
-   const double value = ( open + high + low + close ) / 4;
-   return value;
-}
-
-// - Heikin Ashi chart records
-
-// - Buffers - HA
-double HAOpen[];
-double HABearTrc[];
-double HABullTrc[];
-double HAClose[];
-double HATick[];
-double HAHigh[];
-double HALow[];
-int HACount = 0;
-int HAStart = 0;
-
-// memory management
-const int rsvbars = 8;
-int bufflen;
-
-int calcHA(const int count, 
-           const int start, 
-           const double &open[],
-           const double &high[],
-           const double &low[],
-           const double &close[]) {
-// Optimized Heikin Ashi calculator
-
-// NB: this HA implementation will not invert the indexing of the open, high, low, close time buffers.
-// Those buffers will use an inverse indexing sequence - similar to other indicators in this program
-// contrasted to HAOpen, HABearTrc, HABullTrc, HAClose, which will use indexes approaching "0" at "oldest" tick.
-
-   double mopen, mhigh, mlow, mclose, hopen, hhigh, hlow, hclose, haoprev, hacprev;
-   int hidx, tickidx;
-   
-   // Print(StringFormat("HA Indicator %d, %d", count, start)); // DEBUG
-   
-   if(count > start+2) {
-      if(start == 0) {
-      // calculate initial HA tick from market rate data
-         tickidx = count-1;
-         mopen = open[tickidx];   // market rate open
-         mhigh = high[tickidx];   // market rate high
-         mlow = low[tickidx];     // market rate low
-         mclose = close[tickidx]; // market rate close
-         if(mopen < mclose) {
-            HABearTrc[0] = mlow; 
-            HABullTrc[0] = mhigh;
-         } else {
-            HABearTrc[0] = mhigh;
-            HABullTrc[0] = mlow;
-         }
-         haoprev = mopen;
-         HAOpen[0] = haoprev;
-         hacprev = calcRateHAC(mopen, mhigh, mlow, mclose);
-         HAClose[0] = hacprev;
-         HATick[0] = tickidx;
-      } else {
-        // assume previous HA Open, High, Low, Close records exist
-        haoprev = HAOpen[start];
-        hacprev = HAClose[start];
-      }
-      // calculate subsequent HA tick records
-      for(hidx = start+1, tickidx = (count - start - 2); hidx < count; hidx++, tickidx--) {
-         mopen = open[tickidx];
-         mhigh = high[tickidx];
-         mlow = low[tickidx];
-         mclose = close[tickidx];
-
-         hopen = (haoprev + hacprev) / 2;
-         hclose = calcRateHAC(mopen, mhigh, mlow, mclose);
-         hhigh = MathMax(mhigh, MathMax(hopen, hclose));
-         HAHigh[hidx] = hhigh;
-         hlow = MathMin(mlow, MathMin(hopen, hclose));
-         HALow[hidx] = hlow;
-         // Store data for visuals - HABearTrc, HABullTrc
-         if(hopen < hclose) {
-            HABearTrc[hidx] = hlow;
-            HABullTrc[hidx] = hhigh;
-         } else {
-            HABearTrc[hidx] = hhigh;
-            HABullTrc[hidx] = hlow;
-         }
-         HAOpen[hidx] = hopen;
-         haoprev = hopen;
-         HAClose[hidx] = hclose;
-         hacprev = hclose;
-         HATick[hidx] = tickidx; // FIXME: Delete HATick
-         // Print(StringFormat("HA Calc (%d => %d) O %f H %f L %f C %f", hidx, tickidx, hopen, hhigh, hlow, hclose)); // DEBUG
-      }
-      HAStart = start;
-      HACount = hidx - start;
-      return HACount;
-   } else {
-      // Print(StringFormat("HA INDICATOR ABORT %d %d", count, start)); // DEBUG
-      return 0;
-   }    
-}
-
-void resizeBuffs(const int newsz) {
-   ArrayResize(HAOpen, newsz, rsvbars);
-   ArrayResize(HABearTrc, newsz, rsvbars);
-   ArrayResize(HABullTrc, newsz, rsvbars);
-   ArrayResize(HAClose, newsz, rsvbars);
-   ArrayResize(HATick, newsz, rsvbars);
-   ArrayResize(HAHigh, newsz, rsvbars);
-   ArrayResize(HALow, newsz, rsvbars);
-   bufflen = newsz;
-}
+#include "libha.mqh"
 
 void OnInit() {
+   // FIXME: Revise to define void haInit(int bufferStartIdx)
+   // FIXME: Also define initDrawBuffer(&... *ptr, int nr, style, label, draw_begin=0)
+   // FIXME: Also define initDataBuffer(&... *ptr, int nr)
+   // FIXME: Also define classes DataBuffer, DrawBuffer ???
+   
    IndicatorShortName(label);
    IndicatorDigits(Digits);
    IndicatorBuffers(7); 
