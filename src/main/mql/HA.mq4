@@ -37,12 +37,12 @@
 #property indicator_chart_window
 #property indicator_buffers 4 // number of drawn buffers
 
-// HA0 indicator buffers (drawn)
+// OTLIB HA indicator buffers (drawn)
 //
-// EA0 buffer 0 (1) : HA low=>high   - bear tick trace - HABearTrc
-// EA0 buffer 1 (2) : HA high=>low   - bull tick trace - HABullTrc
-// EA0 buffer 2 (3) : HA ..open..    - bear tick body - HAOpen 
-// EA0 buffer 3 (4) : HA ..close..   - bull tick body - HAClose
+// HA buffer 0 (1) : HA low=>high   - bear tick trace - HABearTrc
+// HA buffer 1 (2) : HA high=>low   - bull tick trace - HABullTrc
+// HA buffer 2 (3) : HA ..open..    - bear tick body - HAOpen 
+// HA buffer 3 (4) : HA ..close..   - bull tick body - HAClose
 
 #property indicator_color1 clrTomato
 #property indicator_width1 1
@@ -69,7 +69,6 @@
 
 // - Program Parameters
 const string label   = "HA";
-
 const double dblz   = 0.0; // use one 0.0 value for zero of type 'double'
 
 // - Code
@@ -222,7 +221,7 @@ void OnInit() {
    SetIndexLabel(3,"Bull Tick Body");
    SetIndexDrawBegin(3,2);
    
-   // FIXME: Delete HATick
+   // FIXME: Delete HATick (?)
    SetIndexBuffer(4,HATick); // puts it under platform memory management ?
    SetIndexBuffer(5,HAHigh); // puts it under platform memory management ?
    SetIndexBuffer(6,HALow); // puts it under platform memory management ?
@@ -268,3 +267,15 @@ int OnCalculate(const int nticks,
    haCount = calcHA(nticks,0,open,high,low,close);
    return haCount;
 }
+
+// FIXME: Consider making all of the HA data available across MLQL4 'import' semnatics, however tedious.
+// 1) define 'export' for trivial functions - move shared functions into otlib.mq4
+// 2) ensure compiled forms are avaialble in appropriate directory - see MQL4 Reference  /  MQL4 programs / Call of Imported Functions 
+//    ... noting TERMINAL_DATA_PATH 
+// 3) define initialization routines that may be called from external program, for initializing this indicator
+//     e.c. extHaInit => OnCalculate() in this file (???)
+// 4) define runtime routines that may be called from external programs, for updating the indicator's record data
+//     e.g extCalcHA => calcHA in this file? or OnCalculate() in this file (???)
+// 5) define accessors encapsulating the array access - e.g getHAClose(...) getHACloseAS(...) latter cf. ArraySetAsSeries, HATick
+// 6) DOCUMENT HOWTO if the MT4 and MQL4 docs aren't sufficient in that regards
+//
