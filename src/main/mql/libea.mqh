@@ -125,9 +125,9 @@ void initDataBufferDT(datetime &ptr[], int len, bool asSeries = true) {
    // FIXME: buffer must be manually resized
 }
 
-void initDataBufferInt(int &ptr[], int len, bool asSeries = true) {
+void initDataBufferInt(int &ptr[], int len, bool asSeries = true, int initValue = 0) {
    ArrayResize(ptr,len,rsvbars);
-   ArrayInitialize(ptr,dtz); // FIXME: Define a DT alternative
+   ArrayInitialize(ptr, initValue);
    // DO LAST:
    ArraySetAsSeries(ptr,asSeries);
    // FIXME: buffer must be manually resized
@@ -137,7 +137,7 @@ void initDataBufferDbl(double &ptr[], int nr, int len, bool asSeries = true) {
    // SetIndexBuffer(nr,ptr,INDICATOR_DATA); // FIXME: INDICATOR_DATA, ... not documented
    SetIndexBuffer(nr,ptr); // FIXME: INDICATOR_DATA not documented
    ArrayResize(ptr,len,rsvbars);
-   ArrayInitialize(ptr,dblz);
+   ArrayInitialize(ptr,dblz); // cannot pass interpreted value as default value. MQL is not Lisp
    // DO LAST:
    ArraySetAsSeries(ptr,asSeries);
 }

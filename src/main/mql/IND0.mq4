@@ -182,7 +182,14 @@ void indResizeBuffers(const int newsz) {
 // called as across an 'import' definition.
 
 void setDrawZero(const int cidx) {
-   TrendDraw[cidx] = dblz;
+   int sz = ArraySize(TrendDraw);
+   if(cidx >= sz) {
+      // FIXME: in the realtime charting, this "zeroing" behavior causes the chart lines to be redrawn in odd ways, periodically
+      PrintFormat("cidx %d out of bounds for TrendDraw of size %d", cidx, sz);
+   } else {
+      PrintFormat("Zero index %d - TrendDraw size %d",cidx, sz);
+      TrendDraw[cidx] = dblz;
+   }
 }
 
 void setDrawRate(const int cidx, const double rate) {
@@ -223,7 +230,7 @@ void moveTrendStart(const int tidx, // trend number
                     const double rate,
                     const bool movePrev=true) {
    const int obsTick = TrendDrSTk[tidx]; // ensure previous slot zeroed
-   if(obsTick != cidx) { setDrawZero(obsTick); } // ?
+   if((obsTick>=0) && (obsTick!=cidx)) { setDrawZero(obsTick); }  
    setTrendStart(tidx, cidx, time, rate);
    if (movePrev && (tidx > 0)) {
    //  Also adjust end rate, time of previous trend when tidx > 0 ?
@@ -254,7 +261,10 @@ void moveTrendEnd(const int tidx, // trend number
                   const double rate,
                   const bool moveNext=true) {
    const int obsTick = TrendDrETk[tidx];
-   if(obsTick != cidx) { setDrawZero(obsTick); } // ?
+   // FIXME: This zeroing behavior, though perhaps logically sound, 
+   // is not well handled in the histogram chart drawing - during 
+   // realtime charting
+   if((obsTick>=0) && (obsTick!=cidx)) { setDrawZero(obsTick); }
    setTrendEnd(tidx, cidx, time, rate);
    if(moveNext && (tidx+1 < nrTrends)) {
       moveTrendStart(tidx+1, cidx, time, rate, false);
@@ -439,8 +449,8 @@ int initTrendBuffs(int start,const int len) {
    initDataBufferDT(TrendStrT,len); // MANUALLY UPDATE
    initDataBufferDbl(TrendEndR,start++,len); // not clock synchd
    initDataBufferDT(TrendEndT,len); // MANUALLY UDPATE
-   initDataBufferInt(TrendDrSTk,len); // MANUALLY UPDATE
-   initDataBufferInt(TrendDrETk,len); // MANUALLY UPDATE
+   initDataBufferInt(TrendDrSTk,len, true, -1); // MANUALLY UPDATE
+   initDataBufferInt(TrendDrETk,len, true, -1); // MANUALLY UPDATE
    return start;
 }
  
@@ -476,7 +486,7 @@ int OnCalculate(const int nticks,
    PrintFormat("OnCalculate %d %d", nticks, counted); // DEBUG
    
    if (nticks >= (bufflen + rsvbars)) {
-      PrintFormat("Resize Buffs: ~D", nticks + rsvbars); // DEBUG
+      PrintFormat("Resize Buffs: %d", nticks + rsvbars); // DEBUG
       trendResizeBuffers(nticks + rsvbars);
    }
    
@@ -487,12 +497,13 @@ int OnCalculate(const int nticks,
    
    // NEXT, call calcTrends() for ...
    int toCount;
-   if(counted == 0) {
+   if(!IsStopped() && (counted == 0)) {
       toCount = nticks;
+      PrintFormat("calll calcTrends - nrTrends %d", nrTrends); // DEBUG
       nrTrends = calcTrends(nticks, counted, open, high, low, close, time);
-      // Print(StringFormat("calcTrends nrTrends %d (count, toCount %d counted %d)", nrTrends, nticks, counted)); // DEBUG
+      PrintFormat("called calcTrends - nrTrends %d", nrTrends); // DEBUG
       return toCount;
-   } else if (nticks > counted) {
+   } else if (!IsStopped() && (nticks > counted)) {
       // FIXME: Effectively this branch of code won't be executed at any resolution narrower than the chart timeframe
       
      // note that this branch of program exec may be arrived at repeatedly,
@@ -508,12 +519,14 @@ int OnCalculate(const int nticks,
         // const double pstart = trendStartRate(nrTrends-1);
         // const double pend = trendEndRate(nrTrends-1);
         const double cstart = trendStartRate(nrTrends);
-        const double cend = trendEndRate(nrTrends);
+        const double cend = trendEndRate(nrTrends); // FIXME: Note that this represents an issue concerning trend indexing
         double curHigh, curLow, rate;
         
         for(int n=toCount; n >= 0; n--) {
          curHigh = high[n];
          curLow = low[n];
+         // FIXME: Do not assume nrTrends is the correct trend number here ??
+         
          if((cstart > cend) && ((cstart > curLow) || (cstart > curHigh))) {
          // simple continuing trend, market rate numerically decreasing
          
@@ -522,7 +535,8 @@ int OnCalculate(const int nticks,
             rate = curHigh;
             // NB: current trend may evolve as to parallel previous trend.
             // FIXME: on parallel trend, fold current trend into previous trend
-            moveTrendEnd(nrTrends,n,time[n],rate, false);            
+            PrintFormat("RT - Move trend %d end to %d (cstart > cend)", nrTrends, n);
+            moveTrendEnd(nrTrends,n,time[n],rate,false);            
          } else if ((cstart < cend) && ((cstart < curHigh) || (cstart < curLow))) {
          // simple continuing trend, market rate numerically increasing
             // rate = (start < curHigh) ? curHigh : curLow;
@@ -530,7 +544,8 @@ int OnCalculate(const int nticks,
             rate = curLow;
             // NB: current trend may evolve as to parallel previous trend.
             // FIXME: on parallel trend, fold current trend into previous trend
-            moveTrendEnd(nrTrends,n,time[n],rate, false);            
+            PrintFormat("RT - Move trend %d end to %d (cstart < cend)", nrTrends, n);
+            moveTrendEnd(nrTrends,n,time[n],rate,false);            
          } else {
          // immediate reversal on Trend[nrTrends]
          // new trend start is determinable at index of previous trend end.
@@ -542,24 +557,12 @@ int OnCalculate(const int nticks,
             // FIXME: use HA high/low values
             rate = (cstart > low[n]) ? high[n] : low[n];
             setTrend(nrTrends++,cendx,n,cend,rate);
-   
-         }
-       }
+         } // if
+       } // for
        return counted + toCount;
-     } else {
-      // FIMXME
+     } /* toCount > 0, nrTrends > 0 */ else {
+      // return number of previous counded chart ticks
       return counted;
      }
-   } else { return counted; }
-   // logDebug(StringFormat("Count %d, Counted %d", nticks, counted));
-
-   
-   // FIXME: calcTrends is applied only for historic analysis. 
-   //
-   // The first trend calculated by calcTernds - i.e. trends[0] - should be updated
-   // subsequent to incoming market data, when the function is applied in a realtime
-   // indicator.
-   // TO DO: define updTrends(const int countDif, const int counted, ...)
-   
-   // return counted;
+   } /* !IsStopped */ else { return counted; }
 }
