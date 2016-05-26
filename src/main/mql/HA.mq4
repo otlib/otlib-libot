@@ -91,7 +91,7 @@ int OnCalculate(const int nticks,
    int haCount;
 
    if (nticks >= (bufflen + rsvbars)) {
-      resizeBuffs(nticks + rsvbars);
+      haResizeBuffers(nticks + rsvbars);
    }
 
    haCount = calcHA(nticks,0,open,high,low,close);

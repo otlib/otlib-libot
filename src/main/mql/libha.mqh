@@ -63,7 +63,8 @@ int HAStart = 0;
 // const int rsvbars = 8; // defined in libea.mqh
 int bufflen;
 
-void haInitBuffers(int start, int len) {
+int haInitBuffers(int start, int len) {
+   // return number (count) of buffers (one indexed)
    initDrawBuffer(HABearTrc,0,len,"Bear Tick Trace",DRAW_HISTOGRAM,2,false);
    initDrawBuffer(HABullTrc,1,len,"Bull Tick Trace",DRAW_HISTOGRAM,2,false);
    initDrawBuffer(HAOpen,2,len,"Bear Tick Body",DRAW_HISTOGRAM,2,false);
@@ -72,9 +73,10 @@ void haInitBuffers(int start, int len) {
    initDataBufferDbl(HATick,4,len,false);
    initDataBufferDbl(HAHigh,5,len,false);
    initDataBufferDbl(HALow,6,len,false);
+   return 7;
 }
 
-void resizeBuffs(const int newsz) {
+void haResizeBuffers(const int newsz) {
    ArrayResize(HAOpen, newsz, rsvbars);
    ArrayResize(HABearTrc, newsz, rsvbars);
    ArrayResize(HABullTrc, newsz, rsvbars);
