@@ -238,7 +238,7 @@ void setTrend(const int tidx, // trend number
               const int endidx, // chart tick index for trend en
               const double strR,   // trend start rate
               const double endR) {
-   // PrintFormat("SetTrend(%d, %d, %d, %f, %f)", tidx, stridx, endidx, strR, endR);
+   PrintFormat("SetTrend(%d, %d, %d, %f, %f)", tidx, stridx, endidx, strR, endR);
    // FIXME: Notice how many trends for which (endx - stridx) = 1
    TrendDraw[stridx] = strR; // FIXME array out of bounds during new trend creation in RT charting
    TrendDrSTk[tidx] = stridx;
@@ -480,7 +480,7 @@ int calcTrends(const int count,
    }  
    
    if (nrTrends > 0) {
-      n--;
+      n = start;
       pTick = trendEndIndex(nrTrends);
       // update last (chronologically first) trend record
       logDebug(StringFormat("Last Trend (%f @ %s) => (%f @ %s)", sRate, TimeToString(time[sTick]), pRate, TimeToString(time[n])));
@@ -577,33 +577,22 @@ int OnCalculate(const int nticks,
         // const double pstart = trendStartRate(nrTrends-1);
         // const double pend = trendEndRate(nrTrends-1);
         const double cstart = trendStartRate(nrTrends);
-        const double cend = trendEndRate(nrTrends); // FIXME: Note that this represents an issue concerning trend indexing
-        double curHigh, curLow, rate;
+        const double cend = trendEndRate(nrTrends);
+        double rate;
         
         for(int n=toCount; n > 0; n--) { // FIXME: Condering proceeding from 0 to toCount, inverting the following logic
-         // FIXME: Alternately, consider preceding from 0 to trendEndIndex(nrTrends)
-         
          // FIXME - STATUS: OK for visuals, but this function is not "folding" parallel forward trends as needed
          
-         curHigh = high[n];
-         curLow = low[n];
-         // FIXME: Do not assume nrTrends is the correct trend number here ??
+         rate = (cstart > cend) ? getTickHAClose(n) : getTickHAOpen(n);
          
-         if((cstart > cend) && ((cstart > curLow) || (cstart > curHigh))) {
+         if((cstart > cend) && ((cstart > rate))) {
          // simple continuing trend, market rate numerically decreasing
-         
-            // rate = (start > curLow) ? curLow : curHigh;
-            // dispatch on low, record high (?) FIXME: use HA high/low values
-            rate = curHigh;
             // NB: current trend may evolve as to parallel previous trend.
             // FIXME: on parallel trend, fold current trend into previous trend
             PrintFormat("RT - Move trend %d end to %d (cstart > cend)", nrTrends, n);
             moveTrendEnd(nrTrends,n,time[n],rate,false);            
-         } else if ((cstart < cend) && ((cstart < curHigh) || (cstart < curLow))) {
+         } else if ((cstart < cend) && ((cstart < rate))) {
          // simple continuing trend, market rate numerically increasing
-            // rate = (start < curHigh) ? curHigh : curLow;
-            // dispatch on high, record low (?) FIXME: use HA high/low values
-            rate = curLow;
             // NB: current trend may evolve as to parallel previous trend.
             // FIXME: on parallel trend, fold current trend into previous trend
             PrintFormat("RT - Move trend %d end to %d (cstart < cend)", nrTrends, n);
@@ -618,7 +607,7 @@ int OnCalculate(const int nticks,
             // const double rate = (start > low[n]) ? low[n] : high[n];
             // similar dispatch/record semantics as in previous branches (?)
             // FIXME: use HA high/low values
-            rate = (cstart > low[n]) ? high[n] : low[n];
+            rate = (cstart > rate) ? getTickHAOpen(n) : getTickHAClose(n);
             
             // FIXME: Ensure buffers are sized acceptably 
             indPadBuffers(nticks + rsvbars);
