@@ -35,15 +35,18 @@
 #property strict
 #property script_show_inputs
 #property indicator_maximum    100
-#property indicator_minimum    -100
+#property indicator_minimum    0
 #property indicator_separate_window
 #property indicator_buffers    2
 #property indicator_color1     SpringGreen
 #property indicator_color2     Gold
 
 
+input int PeriodK=15; // K Period
 input int PeriodD=5;  // Signal Period
 input int PeriodS=5;  // Slowing Period
+input ENUM_MA_METHOD MethodMA=MODE_LWMA; // Moving Average Method
+input bool PrcFldLH=false; // Use Low/High Price Fields
 
 #include "libea.mqh"
 
@@ -51,47 +54,22 @@ double StoMain[];
 double StoSignal[];
 const string label="OTSTO";
 
-int calcSto(const int nticks,
-            const int prev_calc,
-            const double &open[],
-            const double &high[],
-            const double &low[],
-            const double &close[]) {
-//   if (nticks > prev_calc) {
-      const int toCount = nticks - prev_calc;
-      const int nmin = PeriodD + PeriodS;
-      double cl, hl, stmp;
-      int n, m;
-      for (n = toCount-1; n >= nmin; n--) {
-         cl = dblz;
-         hl = dblz;
-         // FIXME: PeriodK not used here - no scanning for high-minimum/low-maximum in period K
-         for(m = (n- PeriodS); m <= n; m++) {
-            cl = cl + close[m] - open[m];
-            hl = hl + high[m] - low[m];
-         }
-         if (hl != dblz) { StoMain[n] = cl/hl * 100.0; }
-      }
-      for (n = toCount-1; n >= nmin; n--) {
-         stmp = dblz;
-         for(m = (n - PeriodD); m <= n; m++) {
-            stmp = stmp + StoMain[m];
-         }
-         StoSignal[n] = stmp/PeriodD;
-         // FIXME: also record StoSignal[n] - StoMain[n]
-      }
-      return toCount;
-//   } else {
-      // FIXME: Realtime OnCalculate here
-//      return prev_calc;
-//   }
-}
-
 void OnInit() {
    IndicatorBuffers(2);
    const int bufflen = iBars(NULL, 0);
-   initDrawBuffer(StoMain,0,bufflen,"Main",DRAW_LINE,0,false);
-   initDrawBuffer(StoSignal,1,bufflen,"Signal",DRAW_LINE,0,false);
+   initDrawBuffer(StoMain,0,bufflen,"Main",DRAW_LINE,0,true);
+   initDrawBuffer(StoSignal,1,bufflen,"Signal",DRAW_LINE,0,true);
+}
+
+double calcStoMain(const int idx) {
+   const static int pf = PrcFldLH ? 0 : 1;
+   return iStochastic(NULL,0,PeriodK,PeriodD,PeriodS,MethodMA,pf,0,idx);
+}
+
+
+double calcStoSignal(const int idx) {
+   const static int pf = PrcFldLH ? 0 : 1;
+   return iStochastic(NULL,0,PeriodK,PeriodD,PeriodS,MethodMA,pf,1,idx);
 }
 
 int OnCalculate(const int ntick,
@@ -104,5 +82,19 @@ int OnCalculate(const int ntick,
                 const long &tick_volume[],
                 const long &volume[],
                 const int &spread[]) {
-   return calcSto(ntick,prev_calc,open,high,low,close);
+                
+   
+   // PrintFormat("NTICK %d, PREV %d", ntick, prev_calc);
+   if(ntick > prev_calc) {
+      for(int n = prev_calc; n<ntick; n++) {
+         StoMain[n] = calcStoMain(n);
+         StoSignal[n] = calcStoSignal(n);
+      } 
+   } else {
+      // update zeroth data bar in realtime
+      const int n = 0;
+      StoMain[n] = calcStoMain(n);
+      StoSignal[n] = calcStoSignal(n);
+   }
+   return ntick;
 }
