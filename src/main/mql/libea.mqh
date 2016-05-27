@@ -73,6 +73,33 @@ int dayStartOffL() export {
    return dayStartOffT(dt);
 }
 
+// - Utiliy Functions - Market Data
+
+double getAskPrice(const string symbol) {
+   return MarketInfo(symbol,MODE_ASK);
+}
+
+double getAskPrice() {
+   return getAskPrice(NULL,MODE_ASK);
+}
+
+double getOfferPrice(const string symbol) {
+   return MarketInfo(symbol,MODE_BID);
+}
+
+double getOfferPrice() {
+   return MarketInfo(NULL,MODE_BID);
+}
+
+double getSpread(const string symbol) {
+   double ask = getAskPrice(symbol);
+   double offer = getOfferPrice(symbol);
+   return ask - offer;
+}
+
+double getSpread() {
+   return getSpread(NULL);
+}
 
 // - Utility Functions - Rate Calculation
 

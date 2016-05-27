@@ -48,6 +48,7 @@ const string label   = "HADF";
 
 // - Code
 
+#include "libea.mqh"
 #include "libha.mqh"
 
 double HAOCDiff[];
@@ -78,24 +79,6 @@ double calcOCDiffChg(const int n) {
 }
 
 
-double getAskPForS(const string symbol) {
-   return MarketInfo(symbol,MODE_ASK);
-}
-
-
-double getOfferPForS(const string symbol) {
-   return MarketInfo(symbol,MODE_BID);
-}
-
-
-
-double getSpreadForS(const string symbol) {
-   double ask = getAskPForS(symbol);
-   double offer = getOfferPForS(symbol);
-   return ask - offer;
-}
-
-
 int OnCalculate(const int ntick,
                 const int prev_count,
                 const datetime &time[],
@@ -110,7 +93,7 @@ int OnCalculate(const int ntick,
    // NB: The spread buffer may be empty.
    haPadBuffers(ntick);
    
-   double sp = getSpreadForS(NULL);
+   double sp = getSpread(NULL);
 
    haCount = calcHA(ntick,0,open,high,low,close);
    if(ntick > prev_count) {
