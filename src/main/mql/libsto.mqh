@@ -33,43 +33,43 @@
 #property description "OTLIB Stochastic Oscillator"
 #property version   "1.00"
 #property strict
-// - Program Parameters
-#property script_show_inputs
-#property indicator_maximum    100
-#property indicator_minimum    0
-#property indicator_separate_window
-#property indicator_buffers    2
-#property indicator_color1     SpringGreen
-#property indicator_color2     Gold
 
-input int stoPeriodK=15; // K Period
-input int stoPeriodD=5;  // Signal Period
-input int stoPeriodS=5;  // Slowing Period
-input ENUM_MA_METHOD stoMethodMA=MODE_LWMA; // Moving Average Method
-input bool stoPrcFldLH=false; // Use Low/High Fields
-// FIXME: Document stoPrcFldLH
+#include "libea.mqh"
 
-// - Code
+double StoMain[];
+double StoSignal[];
 
-#include "libsto.mqh"
+int initSto(int idx) {
+   IndicatorBuffers(idx + 2);
+   const int bufflen = iBars(NULL, 0); // X
 
-const string stoLabel="STO";
-
-void OnInit() {
-   initSto(0);
-   IndicatorShortName(stoLabel);
-
+   initDrawBuffer(StoMain,idx++,bufflen,"Main",DRAW_LINE,0,true);
+   initDrawBuffer(StoSignal,idx++,bufflen,"Signal",DRAW_LINE,0,true);
+   return idx;
 }
 
-int OnCalculate(const int ntick,
-                const int prev_calc,
-                const datetime &time[],
-                const double &open[],
-                const double &high[],
-                const double &low[],
-                const double &close[],
-                const long &tick_volume[],
-                const long &volume[],
-                const int &spread[]) {
-   return calcSto(ntick, prev_calc);
+double calcStoMain(const int idx) {
+   const static int pf = stoPrcFldLH ? 0 : 1;
+   return iStochastic(NULL,0,stoPeriodK,stoPeriodD,stoPeriodS,stoMethodMA,pf,0,idx);
+}
+
+double calcStoSignal(const int idx) {
+   const static int pf = stoPrcFldLH ? 0 : 1;
+   return iStochastic(NULL,0,stoPeriodK,stoPeriodD,stoPeriodS,stoMethodMA,pf,1,idx);
+}
+
+int calcSto(const int ntick, const int prev_calc) {
+   // PrintFormat("NTICK %d, PREV %d", ntick, prev_calc);
+   if(ntick > prev_calc) {
+      for(int n = prev_calc; n<ntick; n++) {
+         StoMain[n] = calcStoMain(n);
+         StoSignal[n] = calcStoSignal(n);
+      } 
+   } else {
+      // update zeroth data bar in realtime
+      const int n = 0;
+      StoMain[n] = calcStoMain(n);
+      StoSignal[n] = calcStoSignal(n);
+   }
+   return ntick;
 }
