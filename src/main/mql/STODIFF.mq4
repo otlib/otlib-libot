@@ -33,14 +33,14 @@
 #property description "OTLIB Stochastic Oscillator"
 #property version   "1.00"
 #property strict
-// - Program Parameters
 #property script_show_inputs
-#property indicator_maximum    100
-#property indicator_minimum    0
+#property indicator_maximum    5
+#property indicator_minimum    -5
 #property indicator_separate_window
-#property indicator_buffers    2
-#property indicator_color1     SpringGreen
-#property indicator_color2     Gold
+#property indicator_buffers    1 // drawn buffers
+#property indicator_color1     Gold
+
+#include "libsto.mqh"
 
 input int stoPeriodK=15; // K Period
 input int stoPeriodD=5;  // Signal Period
@@ -49,16 +49,38 @@ input ENUM_MA_METHOD stoMethodMA=MODE_LWMA; // Moving Average Method
 input bool stoPrcFldLH=false; // Use Low/High Fields
 // FIXME: Document stoPrcFldLH
 
-// - Code
+double StoDiff[];
 
-#include "libsto.mqh"
+const string stodfLabel="STODF";
 
-const string stoLabel="STO";
+int initStoDF(int idx) {
+   const int bufflen = iBars(NULL, 0);
+   // returns total number of buffers
+   initDrawBuffer(StoDiff,idx++,bufflen,"Difference",DRAW_HISTOGRAM,0,true);
+   const int nrbuffs = initStoUndrawn(idx, bufflen);
+   return nrbuffs;
+}
 
 void OnInit() {
-   const int bufflen = iBars(NULL, 0); // X
-   initSto(0, bufflen);
-   IndicatorShortName(stoLabel);
+   initStoDF(0);
+   IndicatorShortName(stodfLabel);
+}
+
+double calcDiff(const int n) {
+   // const double pdiff = StoMain[n+1] - StoSignal[n+1];
+   const double mdiff = StoMain[n] - StoMain[n+1];
+   // const double cdiff = StoMain[n] - StoSignal[n];
+   const double sdiff = StoSignal[n] - StoSignal[n+1];
+   if (sdiff == dblz) {
+      return dblz;
+   } else {
+      const double data = mdiff/sdiff;
+      if (mdiff < 0) {
+         return dblz - data;
+      } else {
+         return data;
+      } 
+   }
 }
 
 int OnCalculate(const int ntick,
@@ -71,5 +93,17 @@ int OnCalculate(const int ntick,
                 const long &tick_volume[],
                 const long &volume[],
                 const int &spread[]) {
-   return calcSto(ntick, prev_calc);
+   calcSto(ntick,prev_calc);
+   if(ntick > prev_calc) {
+      for(int n = prev_calc; n<ntick - 1; n++) {
+         StoDiff[n] = calcDiff(n);
+      }
+      return ntick;
+   } else if (ntick > 0) {
+      // update zeroth data bar in realtime
+      StoDiff[0] = calcDiff(0);
+      return ntick;
+   } else {
+      return 0;
+   }
 }

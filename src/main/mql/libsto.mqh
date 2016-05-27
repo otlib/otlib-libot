@@ -39,12 +39,17 @@
 double StoMain[];
 double StoSignal[];
 
-int initSto(int idx) {
+int initSto(int idx, const int bufflen) {
    IndicatorBuffers(idx + 2);
-   const int bufflen = iBars(NULL, 0); // X
-
    initDrawBuffer(StoMain,idx++,bufflen,"Main",DRAW_LINE,0,true);
    initDrawBuffer(StoSignal,idx++,bufflen,"Signal",DRAW_LINE,0,true);
+   return idx;
+}
+
+int initStoUndrawn(int idx, const int bufflen) {
+   IndicatorBuffers(idx + 2);
+   initDataBufferDbl(StoMain,idx++,bufflen,true);
+   initDataBufferDbl(StoSignal,idx++,bufflen,true);
    return idx;
 }
 
