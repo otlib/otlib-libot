@@ -42,7 +42,6 @@
 #property indicator_color2     Gold
 
 
-input int PeriodK=15; // Main Period
 input int PeriodD=5;  // Signal Period
 input int PeriodS=5;  // Slowing Period
 
@@ -57,20 +56,18 @@ int calcStoHistory(const int nticks,
                    const double &high[],
                    const double &low[],
                    const double &close[]) {
-   if (nticks > prev_calc) {
+//   if (nticks > prev_calc) {
       const int toCount = nticks - prev_calc;
-      const int longPeriod = MathMax(PeriodK,PeriodD);
-      const int nmin = longPeriod + PeriodS;
+      const int nmin = PeriodD + PeriodS;
       double cl, hl, stmp;
-      int n, m, idx;
+      int n, m;
       for (n = toCount-1; n >= nmin; n--) {
          cl = dblz;
          hl = dblz;
+         // FIXME: PeriodK not used here - no scanning for high-minimum/low-maximum in period K
          for(m = (n- PeriodS); m <= n; m++) {
-            // idx = n - PeriodK;
             cl = cl + close[m] - low[m];
             hl = hl + high[m] - low[m];
-            // NB : low/low = 1
          }
          if (hl != dblz) { StoMain[n] = cl/hl * 100.0; }
       }
@@ -83,10 +80,10 @@ int calcStoHistory(const int nticks,
          // FIXME: also record StoSignal[n] - StoMain[n]
       }
       return toCount;
-   } else {
+//   } else {
       // FIXME: Realtime OnCalculate here
-      return prev_calc;
-   }
+//      return prev_calc;
+//   }
 }
 
 void OnInit() {
