@@ -46,6 +46,7 @@ input int PeriodD=5;  // Signal Period
 input int PeriodS=5;  // Slowing Period
 
 #include "libea.mqh"
+#include "libha.mqh"
 
 double StoMain[];
 double StoSignal[];
@@ -67,8 +68,8 @@ int calcSto(const int nticks,
          hl = dblz;
          // FIXME: PeriodK not used here - no scanning for high-minimum/low-maximum in period K
          for(m = (n- PeriodS); m <= n; m++) {
-            cl = cl + close[m] - open[m];
-            hl = hl + high[m] - low[m];
+            cl = cl + getTickHAClose(m) - getTickHAOpen(m);
+            hl = hl + getTickHAHigh(m) - getTickHALow(m);
          }
          if (hl != dblz) { StoMain[n] = cl/hl * 100.0; }
       }
@@ -88,10 +89,11 @@ int calcSto(const int nticks,
 }
 
 void OnInit() {
-   IndicatorBuffers(2);
-   const int bufflen = iBars(NULL, 0);
+   IndicatorBuffers(8);
+   // const int bufflen = iBars(NULL, 0);
    initDrawBuffer(StoMain,0,bufflen,"Main",DRAW_LINE,0,false);
    initDrawBuffer(StoSignal,1,bufflen,"Signal",DRAW_LINE,0,false);
+   haInitBuffersUndrawn(2,bufflen);
 }
 
 int OnCalculate(const int ntick,
@@ -104,5 +106,7 @@ int OnCalculate(const int ntick,
                 const long &tick_volume[],
                 const long &volume[],
                 const int &spread[]) {
+   haPadBuffers(ntick);
+   calcHA(ntick,0,open,high,low,close);
    return calcSto(ntick,prev_calc,open,high,low,close);
 }

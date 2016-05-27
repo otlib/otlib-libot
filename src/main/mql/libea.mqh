@@ -85,6 +85,11 @@ double calcRateHAC(const double open,
    return value;
 }
 
+double calcGeoSum(const double a, const double b) {
+   // calculate geometric sum of a and b
+   double value = MathSqrt(MathPow(a,2) + MathPow(b,2));
+   return value;
+}
 
 // - Utility Functions - Program Utility
 

@@ -34,8 +34,8 @@
 #property version   "1.00"
 #property strict
 #property script_show_inputs
-#property indicator_maximum    5
-#property indicator_minimum    -5
+#property indicator_maximum    2
+#property indicator_minimum    -2
 #property indicator_separate_window
 #property indicator_buffers    1 // drawn buffers
 #property indicator_color1     Gold
@@ -49,24 +49,27 @@ input ENUM_MA_METHOD stoMethodMA=MODE_LWMA; // Moving Average Method
 input bool stoPrcFldLH=false; // Use Low/High Fields
 // FIXME: Document stoPrcFldLH
 
-double StoDiff[];
+double StoVel[]; // metaphor: velocity of STO [UNUSED]
+double StoAcc[]; // metaphor: acceleration of STO
 
 const string stodfLabel="STODF";
 
 int initStoDF(int idx) {
    const int bufflen = iBars(NULL, 0);
    // returns total number of buffers
-   initDrawBuffer(StoDiff,idx++,bufflen,"Difference",DRAW_HISTOGRAM,0,true);
+   initDrawBuffer(StoAcc,idx++,bufflen,"Difference",DRAW_HISTOGRAM,0,true);
+   initDataBufferDbl(StoVel,idx++,bufflen,true);
    const int nrbuffs = initStoUndrawn(idx, bufflen);
    return nrbuffs;
 }
 
 void OnInit() {
    initStoDF(0);
+   IndicatorDigits(Digits+4);
    IndicatorShortName(stodfLabel);
 }
 
-double calcDiff(const int n) {
+double calcVel(const int n) {
    // const double pdiff = StoMain[n+1] - StoSignal[n+1];
    const double mdiff = StoMain[n] - StoMain[n+1];
    // const double cdiff = StoMain[n] - StoSignal[n];
@@ -83,6 +86,17 @@ double calcDiff(const int n) {
    }
 }
 
+double calcAcc(const int n) {
+   const double vcur = calcVel(n);
+   const double vprev = calcVel(n+1);
+   if (vprev == dblz ) {   
+      return dblz;
+   } else {
+      const double data = vcur/vprev;
+      return (vcur < 0) ? -data : data;
+   }
+}
+
 int OnCalculate(const int ntick,
                 const int prev_calc,
                 const datetime &time[],
@@ -95,13 +109,14 @@ int OnCalculate(const int ntick,
                 const int &spread[]) {
    calcSto(ntick,prev_calc);
    if(ntick > prev_calc) {
-      for(int n = prev_calc; n<ntick - 1; n++) {
-         StoDiff[n] = calcDiff(n);
+      for(int n = prev_calc; n<ntick - 2; n++) {
+         // FIXME: StoVel[] unused
+         StoAcc[n] = calcAcc(n);
       }
       return ntick;
    } else if (ntick > 0) {
       // update zeroth data bar in realtime
-      StoDiff[0] = calcDiff(0);
+      StoAcc[0] = calcAcc(0);
       return ntick;
    } else {
       return 0;

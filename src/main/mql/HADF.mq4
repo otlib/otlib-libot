@@ -35,17 +35,12 @@
 #property strict
 #property script_show_inputs
 #property indicator_separate_window
-#property indicator_buffers 1 // number of drawn buffers
+#property indicator_buffers 2 // number of drawn buffers
 
-// OTLIB HA indicator buffers (drawn)
-//
-// HA buffer 0 (1) : HA low=>high   - bear tick trace - HABearTrc
-// HA buffer 1 (2) : HA high=>low   - bull tick trace - HABullTrc
-// HA buffer 2 (3) : HA ..open..    - bear tick body - HAOpen 
-// HA buffer 3 (4) : HA ..close..   - bull tick body - HAClose
-
-#property indicator_color1 clrLimeGreen
-#property indicator_width1 1
+#property indicator_color1 clrDarkOrange
+#property indicator_width1 3 // Change in HA Close-Open Difference
+#property indicator_color2 clrForestGreen
+#property indicator_width2 2 // Heikin Ashi Close-Open Difference
 
 
 // - Program Parameters
@@ -56,23 +51,49 @@ const string label   = "HADF";
 #include "libha.mqh"
 
 double HACODiff[];
+double HACODChg[];
 
 void OnInit() {
    IndicatorShortName(label);
-   IndicatorDigits(Digits);
-   IndicatorBuffers(7);    
+   IndicatorDigits(Digits+2);
+   IndicatorBuffers(8);    
    bufflen = iBars(NULL, 0);
    // NB: SetIndexBuffer may <not> accept a buffer of class type elements, e.g. Trend
-   initDrawBuffer(HACODiff,0,bufflen,"HA OC Diff",DRAW_HISTOGRAM,0,true);
-   haInitBuffers(1, bufflen);
+   initDrawBuffer(HACODChg,0,bufflen,"HA CO Diff Change",DRAW_HISTOGRAM,0,true);
+   initDrawBuffer(HACODiff,1,bufflen,"HA CO Diff",DRAW_HISTOGRAM,0,true);
+   haInitBuffers(2, bufflen);
 }
 
 
 double calcCODiff(const int n) {
    // const double pdiff = StoMain[n+1] - StoSignal[n+1];
-   return getTickHAClose(n) - getTickHAOpen(n);
+   // Incorporate A/D as to represent a character of market trend
+   return (getTickHAOpen(n) - getTickHAClose(n)) * iAD(NULL, 0, n);
 }
 
+double calcCODiffChg(const int n) {
+   const double curDiff = calcCODiff(n);
+   const double prevDiff = calcCODiff(n+1);
+   return calcGeoSum(curDiff, prevDiff);
+}
+
+
+double getAskPForS(const string symbol) {
+   return MarketInfo(symbol,MODE_ASK);
+}
+
+
+double getOfferPForS(const string symbol) {
+   return MarketInfo(symbol,MODE_BID);
+}
+
+
+
+double getSpreadForS(const string symbol) {
+   double ask = getAskPForS(symbol);
+   double offer = getOfferPForS(symbol);
+   return ask - offer;
+}
 
 
 int OnCalculate(const int ntick,
@@ -86,20 +107,23 @@ int OnCalculate(const int ntick,
                 const long &volume[],
                 const int &spread[]) {
    int haCount;
-
+   // NB: The spread buffer may be empty.
    haPadBuffers(ntick);
+   
+   double sp = getSpreadForS(NULL);
 
    haCount = calcHA(ntick,0,open,high,low,close);
    if(ntick > prev_count) {
-      for(int n = prev_count; n<ntick - 2; n++) {
-         // FIXME: StoVel[] unused
+      for(int n = prev_count; n < (ntick - 2); n++) {
          HACODiff[n] = calcCODiff(n);
+         HACODChg[n] = calcCODiffChg(n) - sp; // FIXME KLUDGE
       }
       return ntick;
    } else if (ntick > 0) {
       // update zeroth data bar in realtime
       HACODiff[0] = calcCODiff(0);
-      return haCount;
+      HACODChg[0] = calcCODiffChg(0) - sp;
+      return ntick;
    } else {
       return 0;
    }

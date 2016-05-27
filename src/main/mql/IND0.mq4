@@ -550,7 +550,8 @@ int OnCalculate(const int nticks,
    
    // FIRST, call calcHA() to populate the HA data buffers
    int haCount;
-   haCount = calcHA(nticks,counted,open,high,low,close);
+   // haCount = calcHA(nticks,counted,open,high,low,close);
+   haCount = calcHA(nticks,0,open,high,low,close);
 
    
    // NEXT, call calcTrends() for ...
