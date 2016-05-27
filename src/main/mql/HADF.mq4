@@ -50,8 +50,8 @@ const string label   = "HADF";
 
 #include "libha.mqh"
 
-double HACODiff[];
-double HACODChg[];
+double HAOCDiff[];
+double HAOCDChg[];
 
 void OnInit() {
    IndicatorShortName(label);
@@ -59,21 +59,21 @@ void OnInit() {
    IndicatorBuffers(8);    
    bufflen = iBars(NULL, 0);
    // NB: SetIndexBuffer may <not> accept a buffer of class type elements, e.g. Trend
-   initDrawBuffer(HACODChg,0,bufflen,"HA CO Diff Change",DRAW_HISTOGRAM,0,true);
-   initDrawBuffer(HACODiff,1,bufflen,"HA CO Diff",DRAW_HISTOGRAM,0,true);
+   initDrawBuffer(HAOCDChg,0,bufflen,"HA CO Diff Change",DRAW_HISTOGRAM,0,true);
+   initDrawBuffer(HAOCDiff,1,bufflen,"HA CO Diff",DRAW_HISTOGRAM,0,true);
    haInitBuffers(2, bufflen);
 }
 
 
-double calcCODiff(const int n) {
+double calcOCDiff(const int n) {
    // const double pdiff = StoMain[n+1] - StoSignal[n+1];
    // Incorporate A/D as to represent a character of market trend
    return (getTickHAOpen(n) - getTickHAClose(n)) * iAD(NULL, 0, n);
 }
 
-double calcCODiffChg(const int n) {
-   const double curDiff = calcCODiff(n);
-   const double prevDiff = calcCODiff(n+1);
+double calcOCDiffChg(const int n) {
+   const double curDiff = calcOCDiff(n);
+   const double prevDiff = calcOCDiff(n+1);
    return calcGeoSum(curDiff, prevDiff);
 }
 
@@ -115,14 +115,14 @@ int OnCalculate(const int ntick,
    haCount = calcHA(ntick,0,open,high,low,close);
    if(ntick > prev_count) {
       for(int n = prev_count; n < (ntick - 2); n++) {
-         HACODiff[n] = calcCODiff(n);
-         HACODChg[n] = calcCODiffChg(n) - sp; // FIXME KLUDGE
+         HAOCDiff[n] = calcOCDiff(n);
+         HAOCDChg[n] = calcOCDiffChg(n) - sp; // FIXME KLUDGE
       }
       return ntick;
    } else if (ntick > 0) {
       // update zeroth data bar in realtime
-      HACODiff[0] = calcCODiff(0);
-      HACODChg[0] = calcCODiffChg(0) - sp;
+      HAOCDiff[0] = calcOCDiff(0);
+      HAOCDChg[0] = calcOCDiffChg(0) - sp;
       return ntick;
    } else {
       return 0;
