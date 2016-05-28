@@ -73,7 +73,7 @@ double placeOrder(const bool buy, const double volume, const string comment=NULL
    // FIXME struct MqlTradeRequest not documented (MQL4)
    const string symbol = getCurrentSymbol();
    double mkt;
-   bool cmd;
+   int cmd;
    if(buy) {
       mkt = getAskPrice();
       cmd = OP_BUY;
@@ -81,7 +81,9 @@ double placeOrder(const bool buy, const double volume, const string comment=NULL
       mkt = getOfferPrice();
       cmd = OP_SELL;
    }
+   // NB: no slippage rate, SL, TP, timed expiration
    const double orderNr = OrderSend(symbol,cmd,volume,mkt,0,0,0,comment,idx);
+   // NB: orderNr = -1[.0??] on failed call to OrderSend
    return orderNr;
 }
 
@@ -90,6 +92,8 @@ double placeOrder(const bool buy, const double rate, const double volume, const 
 // NB: getStopLevel()
    const string symbol = getCurrentSymbol();
    const int cmd = cmdFor(buy,rate);
+   // NB: no slippage rate, SL, TP, timed expiration
    const double orderNr = OrderSend(symbol,cmd,volume,rate,0,0,0,comment,idx);
+   // NB: orderNr = -1[.0??] on failed call to OrderSend
    return orderNr;
 }
