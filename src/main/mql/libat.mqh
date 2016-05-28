@@ -39,8 +39,6 @@
 
 // FIXME: Test in realtime paper trading (markets closed on weekends)
 
-#include "libea.mqh"
-
 int cmdFor(const bool buy, const double rate) {
    // FIXME: Documentation
    // "Buy" executes at "Ask" price
@@ -69,7 +67,7 @@ int cmdFor(const bool buy, const double rate) {
 }
 
 double placeOrder(const bool buy, const double volume, const string comment=NULL, const int idx=0) {
-// place an order to open at current market rate
+// place an order to open at current market rate, on current currency symbol
    // FIXME struct MqlTradeRequest not documented (MQL4)
    const string symbol = getCurrentSymbol();
    double mkt;
@@ -83,17 +81,17 @@ double placeOrder(const bool buy, const double volume, const string comment=NULL
    }
    // NB: no slippage rate, SL, TP, timed expiration
    const double orderNr = OrderSend(symbol,cmd,volume,mkt,0,0,0,comment,idx);
-   // NB: orderNr = -1[.0??] on failed call to OrderSend
+   // NB: orderNr < 0 on failed call to OrderSend
    return orderNr;
 }
 
 double placeOrder(const bool buy, const double rate, const double volume, const string comment=NULL, const int idx=0) {
-// place a forward order to open at 'rate'
+// place a forward order to open at 'rate', on current currency symbol
 // NB: getStopLevel()
    const string symbol = getCurrentSymbol();
    const int cmd = cmdFor(buy,rate);
    // NB: no slippage rate, SL, TP, timed expiration
    const double orderNr = OrderSend(symbol,cmd,volume,rate,0,0,0,comment,idx);
-   // NB: orderNr = -1[.0??] on failed call to OrderSend
+   // NB: orderNr < 0 on failed call to OrderSend
    return orderNr;
 }
