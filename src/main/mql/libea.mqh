@@ -47,6 +47,14 @@ const int rsvbars = 512;
 // 
 // subset: functions applied in EA0 prototypes
 
+
+// - Utility Functions - Curency Pairs
+
+string getCurrentSymbol() {
+   return ChartSymbol(0);
+}
+
+
 // - Utility Functions - Time
 
 int dayStartOffT(const datetime dt) {
@@ -80,7 +88,7 @@ double getAskPrice(const string symbol) {
 }
 
 double getAskPrice() {
-   return getAskPrice(NULL,MODE_ASK);
+   return getAskPrice(NULL);
 }
 
 double getOfferPrice(const string symbol) {
@@ -88,7 +96,7 @@ double getOfferPrice(const string symbol) {
 }
 
 double getOfferPrice() {
-   return MarketInfo(NULL,MODE_BID);
+   return getOfferPrice(NULL);
 }
 
 double getSpread(const string symbol) {
@@ -99,6 +107,14 @@ double getSpread(const string symbol) {
 
 double getSpread() {
    return getSpread(NULL);
+}
+
+double getStoplevel(const string symbol) {
+   return MarketInfo(symbol, MODE_STOPLEVEL);
+}
+
+double getStoplevel() {
+   return getStoplevel(NULL);
 }
 
 // - Utility Functions - Rate Calculation
