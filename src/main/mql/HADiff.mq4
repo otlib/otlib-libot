@@ -46,6 +46,8 @@
 // - Program Parameters
 const string label   = "HADiff";
 
+const double DIFF_SCALE = 1000.0;
+
 // - Code
 
 #include "libea.mqh"
@@ -119,22 +121,23 @@ int OnCalculate(const int ntick,
    haCount = calcHA(ntick,0,open,high,low,close);
    
    if(ntick > prev_count) { // when prev_count = 0 & when to record more data bars than in previous iteration
-      for(int n = prev_count; n < ntick - 1; n++) {
-         HAOCDiff[n] = safeRatio(calcOCDiff(n), sp);
-         HAOCDChg[n] = safeRatio(calcOCDiffChg(n), sp);
+      for(int n = prev_count; n < (ntick - 1); n++) {
+         HAOCDiff[n] = safeRatio(calcOCDiff(n), sp) / DIFF_SCALE;
+         HAOCDChg[n] = safeRatio(calcOCDiffChg(n), sp) / DIFF_SCALE;
       }
       return ntick; 
    } else {
-      // typically called when prev_count = ntick and ntick = 0
-      //      
+      // typically called when prev_count = ntick, thus toCount = 0
+      // sometimes called when ntick = prev_count + 1
+      //
       // role: update up to zeroth data bar
       // notes: typically called in realtime upadates, across timer durations shorter than market tick duration
 
       // FIXME: This difference/ratio calculation usually SPIKES at tick 0
 
       for(int n = 0; n <= (ntick - prev_count); n++) {
-         HAOCDiff[n] = safeRatio(calcOCDiff(n), sp);
-         HAOCDChg[n] = safeRatio(calcOCDiffChg(n), sp);
+         HAOCDiff[n] = safeRatio(calcOCDiff(n), sp) / DIFF_SCALE;
+         HAOCDChg[n] = safeRatio(calcOCDiffChg(n), sp) / DIFF_SCALE;
       }
       return ntick;
    }
