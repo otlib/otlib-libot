@@ -484,10 +484,10 @@ int calcTrends(const int count,
       // update last (chronologically first) trend record
       logDebug(StringFormat("Last Trend (%f @ %s) => (%f @ %s)", sRate, TimeToString(time[sTick]), pRate, TimeToString(time[n])));
       // pRate = calcMax ? getTickHAHigh(n): getTickHALow(n);
-      pRate = calcMax ? getTickHAOpen(n) : getTickHAClose(n); // ??
+      pRate = calcMax ? getTickHAHigh(n) : getTickHALow(n); // ??
       // sTrend = new Trend(time[n], pRate, time[sTick], sRate);
       // trends[nrTrends++] = sTrend;
-      setTrend(nrTrends++, n, sTick, pRate, sRate); // NB: Updates TrendDraw[n]
+      setTrend(nrTrends++, n, start, pRate, sRate); // NB: Updates TrendDraw[n]
    }
 
    // set draw rate for end rate of zeroth trend 
@@ -557,7 +557,7 @@ int OnCalculate(const int nticks,
    int toCount;
    if(!IsStopped() && (counted == 0)) {
       toCount = nticks;
-      PrintFormat("calll calcTrends - nrTrends %d", nrTrends); // DEBUG
+      PrintFormat("call calcTrends - nrTrends %d", nrTrends); // DEBUG
       nrTrends = calcTrends(nticks, counted, open, high, low, close, time);
       PrintFormat("called calcTrends - nrTrends %d", nrTrends); // DEBUG
       return toCount;
@@ -612,7 +612,7 @@ int OnCalculate(const int nticks,
             indPadBuffers(nticks + rsvbars);
             setTrend(nrTrends++,cendx,n,cend,rate);
             
-            PrintFormat("RT - New trend %d (%f => %f) start %s", nrTrends, cend, rate, TimeToString(time[cendx]));
+            PrintFormat("RT - New trend %d (%f => %f) start %s (%d)", nrTrends, cend, rate, TimeToStr(time[cendx]), cendx);
          } // if
        } // for
        return nticks;
