@@ -44,7 +44,7 @@
 
 
 // - Program Parameters
-const string label   = "HADF";
+const string label   = "HADiff";
 
 // - Code
 
