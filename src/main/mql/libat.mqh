@@ -37,30 +37,45 @@
 
 #include "libea.mqh"
 
-// FIXME: Test in realtime paper trading (markets closed on weekends)
+// FIXME: Test in realtime paper trading
 
 int cmdFor(const bool buy, const double rate) {
    // FIXME: Documentation
+   
+   // Logic:
+   //
    // "Buy" executes at "Ask" price
    // "Sell" executes at "Offer" price
+   //
+   // Buy @ higher than market price + mkt stoplevel = Buy Stop
+   // Sell @ lower than market price - mkt stoplevel = Sell Stop
+   // Buy @ lower than market price + mkt stoplevel = Buy Limit
+   // Sell @ highter than market price - mkt pad = Sell Limit
+   
    
    // const double sl = getStoplevel();
    // FIXME: adjust stop/limit order calc for market stop level, returning -1 if INVALID
    if(buy) {
       const double mkt = getAskPrice();
-      // FIXME: Expand on OTLIB documentation
-      if(rate > mkt) {
-         // FIXME implement
+      const double mktst = mkt + getStoplevel();
+      if(rate > mktst) {
+         return OP_BUYSTOP;
+      } else if (rate < mktst) {
+         return OP_BUYLIMIT;
       } else {
-         // FIXME implement
-      } 
+         // if (mkt > rate < mktst) ... TBD
+         return OP_BUY;
+      }
    } else {
       const double mkt = getOfferPrice();
-      // FIXME: Expand on OTLIB documentation
-      if(rate > mkt) {
-         // FIXME implement
+      const double mktst = mkt - getStoplevel();
+      if(rate < mktst) {
+         return OP_SELLSTOP;
+      } else if (rate > mktst) {
+         return OP_SELLLIMIT
       } else {
-         // FIXME implement
+      // if (mkt > rate < mktst) ... TBD
+         return OP_SELL;
       }
    }
    return -1; // FIXME tmp
