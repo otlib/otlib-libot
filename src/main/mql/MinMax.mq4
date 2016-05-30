@@ -37,7 +37,7 @@
 #property indicator_chart_window
 #property indicator_buffers 1 // number of drawn buffers
 
-#property indicator_color1 clrYellowGreen
+#property indicator_color1 clrLime
 #property indicator_width1 3
 
 #include "libea.mqh"
@@ -114,10 +114,10 @@ void setDraw(const int idx, const double rate) {
 }
 
 int calcMinMax(const int ntick,
-                const int prev_count) {
+               const int prev_count) {
 
-   int tick = prev_count + 1;
-   int prevTick = prev_count;
+   int tick = 0;
+   int prevTick = 1;
    double rate = getTickHAOpen(tick);
    double prevRate = getTickHAOpen(prevTick);
    
@@ -133,13 +133,15 @@ int calcMinMax(const int ntick,
       mmZeroizeBuffers();
    }
 
-   if(toCount > 0) { // when prev_count = 0 & when to record more data bars than in previous iteration
+   if (ntick <= prevTick) { 
+      return 0;
+   } else if(toCount > 0) { // when prev_count = 0 & when to record more data bars than in previous iteration
       for(int n = prev_count; n < (ntick - 1); n++) {
          tick = n;
          rtOpen = getTickHAOpen(n);
          rtClose = getTickHAClose(n);
          // select rate based on whether tick is a bear or a bull tick
-         rate = (rtOpen > rtClose) ? getTickHAHigh(n) : getTickHALow(n);
+         rate = (rtOpen < rtClose) ? getTickHAHigh(n) : getTickHALow(n);
          
          if(rate > prevRate) {  // FIXME: Rate for current tick not set 
             lastMax = rate;
