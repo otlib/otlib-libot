@@ -112,8 +112,8 @@ int haPadBuffers(const int count) {
 // - accessors
 
 int getTickHA(const int idx) {
+//   PrintFormat("getTickHA(%d)", idx); // DEBUG
    const int htk = TickHA[idx];
-   // PrintFormat("getTickHA(%d) => %d", idx, htk); // DEBUG
    return htk;
 }
 

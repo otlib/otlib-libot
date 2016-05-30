@@ -66,17 +66,43 @@ void OnInit() {
 }
 
 
-double calcOCDiff(const int n) {
+double calcOCDiff(const int n) { // FIXME: RENAME => CODiff
+   // calc w/ volume
    // const double pdiff = StoMain[n+1] - StoSignal[n+1];
    // Incorporate A/D as to represent a character of market trend
-   return (getTickHAOpen(n) - getTickHAClose(n)) * iAD(NULL, 0, n);
+   return ((getTickHAClose(n) - getTickHAOpen(n)) /* * iAD(NULL, 0, n) */ ) / (double) iVolume(NULL,0,n);
 }
 
+
+double calcOCDiff(const int n, bool volumep) { // FIXME: RENAME => CODiff
+   // calc optinoally w/ volume
+   // Incorporate A/D as to represent a character of market trend (FIXME: TO DO)
+   if(volumep) {
+      return calcOCDiff(n);
+   } else {
+     return ((getTickHAClose(n) - getTickHAOpen(n)) /* * iAD(NULL, 0, n) */ );
+   }
+}
+
+
 double calcOCDiffChg(const int n) {
+   // calc w/ volume
    const double curDiff = calcOCDiff(n);
    const double prevDiff = calcOCDiff(n+1);
-   return calcGeoSum(curDiff, prevDiff);
+   return calcGeoSum(curDiff,prevDiff);
 }
+
+double calcOCDiffChg(const int n, bool volumep) {
+   // calc optionally w/ volume
+   if(volumep) {
+      return calcOCDiffChg(n);
+   } else {
+      const double curDiff = calcOCDiff(n, false); 
+      const double prevDiff = calcOCDiff(n+1, false);
+      return calcGeoSum(curDiff, prevDiff);
+   }
+}
+
 
 
 int OnCalculate(const int ntick,
@@ -91,21 +117,41 @@ int OnCalculate(const int ntick,
                 const int &spread[]) {
    int haCount;
    // NB: The spread buffer may be empty.
+   // The Volume buffer may also be empty ??
    haPadBuffers(ntick);
    
    double sp = getSpread(NULL);
 
    haCount = calcHA(ntick,0,open,high,low,close);
-   if(ntick > prev_count) {
+   if(ntick > prev_count) { // when prev_count = 0 - or when to record more data bars than in previous iteration
       for(int n = prev_count; n < (ntick - 2); n++) {
-         HAOCDiff[n] = calcOCDiff(n);
-         HAOCDChg[n] = calcOCDiffChg(n) - sp; // FIXME KLUDGE
+/*         if (n > 0) { */
+            HAOCDiff[n] = calcOCDiff(n);
+            HAOCDChg[n] = calcOCDiffChg(n) /* - sp */; // FIXME KLUDGED REALTIME MKT SPREAD RECORDING
+//         } else { // n = 0
+//            // market volume not yet available at bar 0 ?!
+//            HAOCDiff[n] = calcOCDiff(n, true);
+//            HAOCDChg[n] = calcOCDiffChg(n, true) /* - sp */; // FIXME KLUDGED REALTIME MKT SPREAD RECORDING         
+//        }
       }
-      return ntick;
-   } else if (ntick > 0) {
-      // update zeroth data bar in realtime
-      HAOCDiff[0] = calcOCDiff(0);
-      HAOCDChg[0] = calcOCDiffChg(0) - sp;
+      return ntick; 
+      // FIXME: KLUDGE - revise to use same 'for' calc, regardless if ntick > prev_count
+   } else if (ntick > 0) { // when prev_count >= ntick && ntick > 0
+      // typically called when prev_count = ntick and ntick = 0
+      
+      // update up to zeroth data bar in realtime
+      
+      // FIXME: also flag previous bars, update if not incorporating market volume data
+
+      // FIXME: KLUDGE implicit ntick = 0
+/*         if (ntick > 0) { */
+            HAOCDiff[0] = calcOCDiff(0);
+            HAOCDChg[0] = calcOCDiffChg(0) /* - sp */; // FIXME KLUDGED REALTIME MKT SPREAD RECORDING
+/*         } else {
+            // market volume not yet available at bar 0 ?!
+            HAOCDiff[0] = calcOCDiff(0, true);
+            HAOCDChg[0] = calcOCDiffChg(0, true) - sp; // FIXME KLUDGED REALTIME MKT SPREAD RECORDING
+         } */
       return ntick;
    } else {
       return 0;
