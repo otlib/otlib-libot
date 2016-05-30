@@ -69,8 +69,16 @@ void OnInit() {
 double calcOCDiff(const int n) { // FIXME: RENAME => CODiff
    // calc w/ volume
    // const double pdiff = StoMain[n+1] - StoSignal[n+1];
-   // Incorporate A/D as to represent a character of market trend
-   return ((getTickHAClose(n) - getTickHAOpen(n)) /* * iAD(NULL, 0, n) */ ) / (double) iVolume(NULL,0,n);
+   // FIXME: Incorporate A/D as to represent a character of market trend
+   double c = getTickHAClose(n);
+   double o = getTickHAOpen(n);
+   double rslt = calcGeoSum((c - o), iVolume(NULL,0,n));
+   if (o > c) {
+      return -rslt;
+   } else {
+      return rslt;
+   }
+   
 }
 
 
@@ -136,6 +144,8 @@ int OnCalculate(const int ntick,
       //      
       // role: update up to zeroth data bar
       // notes: typically called in realtime upadates, across timer durations shorter than market tick duration
+
+      // FIXME: This difference/ratio calculation usually SPIKES at tick 0
 
       for(int n = 0; n <= (ntick - prev_count); n++) {
          HAOCDiff[n] = calcOCDiff(n);
