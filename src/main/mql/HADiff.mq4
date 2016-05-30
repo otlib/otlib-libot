@@ -66,13 +66,13 @@ void OnInit() {
 }
 
 
-double calcOCDiff(const int n) { // FIXME: RENAME => CODiff
+double calcOCDiff(const int n, bool volumep=true) { // FIXME: RENAME => CODiff
    // calc w/ volume
    // const double pdiff = StoMain[n+1] - StoSignal[n+1];
    // FIXME: Incorporate A/D as to represent a character of market trend
-   double c = getTickHAClose(n);
-   double o = getTickHAOpen(n);
-   double rslt = calcGeoSum((c - o), iVolume(NULL,0,n));
+   const double c = getTickHAClose(n);
+   const double o = getTickHAOpen(n);
+   const double rslt = volumep ? calcGeoSum((c - o), iVolume(NULL,0,n)) : (c - o);
    if (o > c) {
       return -rslt;
    } else {
@@ -81,32 +81,13 @@ double calcOCDiff(const int n) { // FIXME: RENAME => CODiff
    
 }
 
-
-double calcOCDiff(const int n, bool volumep) { // FIXME: RENAME => CODiff
-   // calc optinoally w/ volume
-   // Incorporate A/D as to represent a character of market trend (FIXME: TO DO)
-   if(volumep) {
-      return calcOCDiff(n);
-   } else {
-     return ((getTickHAClose(n) - getTickHAOpen(n)) /* * iAD(NULL, 0, n) */ );
-   }
-}
-
-
-double calcOCDiffChg(const int n) {
-   // calc w/ volume
-   const double curDiff = calcOCDiff(n);
-   const double prevDiff = calcOCDiff(n+1);
-   return calcGeoSum(curDiff,prevDiff);
-}
-
-double calcOCDiffChg(const int n, bool volumep) {
+double calcOCDiffChg(const int n, bool volumep=true) {
    // calc optionally w/ volume
    if(volumep) {
       return calcOCDiffChg(n);
    } else {
-      const double curDiff = calcOCDiff(n, false); 
-      const double prevDiff = calcOCDiff(n+1, false);
+      const double curDiff = calcOCDiff(n, volumep); 
+      const double prevDiff = calcOCDiff(n+1, volumep);
       return calcGeoSum(curDiff, prevDiff);
    }
 }
