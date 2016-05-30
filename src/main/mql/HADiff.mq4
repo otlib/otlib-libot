@@ -129,14 +129,14 @@ int OnCalculate(const int ntick,
    haPadBuffers(ntick);
    // PrintFormat("HADiff::OnCalculate(%d, %d, ...)", ntick, prev_count); // DEBUG
    
-   // double sp = getSpread(NULL);
+   double sp = getSpread(NULL);
    
    haCount = calcHA(ntick,0,open,high,low,close);
    
    if(ntick > prev_count) { // when prev_count = 0 & when to record more data bars than in previous iteration
       for(int n = prev_count; n < ntick - 1; n++) {
-         HAOCDiff[n] = calcOCDiff(n);
-         HAOCDChg[n] = calcOCDiffChg(n) /* - sp */; // FIXME KLUDGED REALTIME MKT SPREAD RECORDING
+         HAOCDiff[n] = calcOCDiff(n) / sp;
+         HAOCDChg[n] = calcOCDiffChg(n) / sp ; // FIXME KLUDGED REALTIME MKT SPREAD RECORDING
       }
       return ntick; 
    } else {
@@ -148,8 +148,8 @@ int OnCalculate(const int ntick,
       // FIXME: This difference/ratio calculation usually SPIKES at tick 0
 
       for(int n = 0; n <= (ntick - prev_count); n++) {
-         HAOCDiff[n] = calcOCDiff(n);
-         HAOCDChg[n] = calcOCDiffChg(n) /* - sp */; // FIXME KLUDGED REALTIME MKT SPREAD RECORDING
+         HAOCDiff[n] = calcOCDiff(n)  / sp ;
+         HAOCDChg[n] = calcOCDiffChg(n)  / sp; // FIXME KLUDGED REALTIME MKT SPREAD RECORDING
       }
       return ntick;
    }
