@@ -153,6 +153,7 @@ datetime dtz; // heap allocated (FIXME)
 bool dtzok = false;
 
 void initDataBufferDT(datetime &ptr[], int len, bool asSeries = true) {
+   // FIXME: ENUM_INDEXBUFFER_TYPE NOT DOCUMENTED (MQL4 REF) - DOCUMENTED (MQL5 REF)
    if(!dtzok) {   
       dtzs.year = 0;
       dtzs.mon = 0;
@@ -182,9 +183,9 @@ void initDataBufferInt(int &ptr[], int len, bool asSeries = true, int initValue 
 }
 
 void initDataBufferDbl(double &ptr[], int nr, int len, bool asSeries = true) {
-   // SetIndexBuffer(nr,ptr,INDICATOR_DATA); // FIXME: INDICATOR_DATA, ... not documented
+   // FIXME: rename => initCalcBufferDbl
    ArrayResize(ptr,len,rsvbars); // DO BEFORE SetIndexBuffer - see ArrayResize docu
-   SetIndexBuffer(nr,ptr); // FIXME: INDICATOR_DATA not documented
+   SetIndexBuffer(nr,ptr,INDICATOR_CALCULATIONS); // FIXME: INDICATOR_DATA not documented
    ArrayInitialize(ptr,dblz); // cannot pass interpreted value as default value. MQL is not Lisp
    // DO LAST:
    ArraySetAsSeries(ptr,asSeries);
@@ -192,7 +193,7 @@ void initDataBufferDbl(double &ptr[], int nr, int len, bool asSeries = true) {
 
 void initDrawBuffer(double &ptr[], int nr, int len, string lbl, int style=DRAW_LINE, int draw_begin=0, bool asSeries=true) {
    ArrayResize(ptr,len,rsvbars); // DO BEFORE SetIndexBuffer - see ArrayResize docu
-   SetIndexBuffer(nr,ptr);
+   SetIndexBuffer(nr,ptr,INDICATOR_DATA);
    ArrayInitialize(ptr,dblz);
    // DO LAST in array modification forms
    ArraySetAsSeries(ptr,asSeries);

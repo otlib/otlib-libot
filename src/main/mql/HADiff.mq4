@@ -119,42 +119,29 @@ int OnCalculate(const int ntick,
    // NB: The spread buffer may be empty.
    // The Volume buffer may also be empty ??
    haPadBuffers(ntick);
+   // PrintFormat("HADiff::OnCalculate(%d, %d, ...)", ntick, prev_count); // DEBUG
    
-   double sp = getSpread(NULL);
-
+   // double sp = getSpread(NULL);
+   
    haCount = calcHA(ntick,0,open,high,low,close);
-   if(ntick > prev_count) { // when prev_count = 0 - or when to record more data bars than in previous iteration
-      for(int n = prev_count; n < (ntick - 2); n++) {
-/*         if (n > 0) { */
-            HAOCDiff[n] = calcOCDiff(n);
-            HAOCDChg[n] = calcOCDiffChg(n) /* - sp */; // FIXME KLUDGED REALTIME MKT SPREAD RECORDING
-//         } else { // n = 0
-//            // market volume not yet available at bar 0 ?!
-//            HAOCDiff[n] = calcOCDiff(n, true);
-//            HAOCDChg[n] = calcOCDiffChg(n, true) /* - sp */; // FIXME KLUDGED REALTIME MKT SPREAD RECORDING         
-//        }
+   
+   if(ntick > prev_count) { // when prev_count = 0 & when to record more data bars than in previous iteration
+      for(int n = prev_count; n < ntick - 1; n++) {
+         HAOCDiff[n] = calcOCDiff(n);
+         HAOCDChg[n] = calcOCDiffChg(n) /* - sp */; // FIXME KLUDGED REALTIME MKT SPREAD RECORDING
       }
       return ntick; 
-      // FIXME: KLUDGE - revise to use same 'for' calc, regardless if ntick > prev_count
-   } else if (ntick > 0) { // when prev_count >= ntick && ntick > 0
-      // typically called when prev_count = ntick and ntick = 0
-      
-      // update up to zeroth data bar in realtime
-      
-      // FIXME: also flag previous bars, update if not incorporating market volume data
-
-      // FIXME: KLUDGE implicit ntick = 0
-/*         if (ntick > 0) { */
-            HAOCDiff[0] = calcOCDiff(0);
-            HAOCDChg[0] = calcOCDiffChg(0) /* - sp */; // FIXME KLUDGED REALTIME MKT SPREAD RECORDING
-/*         } else {
-            // market volume not yet available at bar 0 ?!
-            HAOCDiff[0] = calcOCDiff(0, true);
-            HAOCDChg[0] = calcOCDiffChg(0, true) - sp; // FIXME KLUDGED REALTIME MKT SPREAD RECORDING
-         } */
-      return ntick;
    } else {
-      return 0;
+      // typically called when prev_count = ntick and ntick = 0
+      //      
+      // role: update up to zeroth data bar
+      // notes: typically called in realtime upadates, across timer durations shorter than market tick duration
+
+      for(int n = 0; n <= (ntick - prev_count); n++) {
+         HAOCDiff[n] = calcOCDiff(n);
+         HAOCDChg[n] = calcOCDiffChg(n) /* - sp */; // FIXME KLUDGED REALTIME MKT SPREAD RECORDING
+      }
+      return ntick;
    }
 }
 

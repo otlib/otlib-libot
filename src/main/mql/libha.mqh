@@ -100,7 +100,7 @@ void haResizeBuffers(const int newsz) {
 int haPadBuffers(const int count) {
   if (count > bufflen) {
       const int newct = count + rsvbars; // X
-      PrintFormat("Resize Buffers [HA] %d => %d", bufflen, newct); // DEBUG
+      // PrintFormat("Resize Buffers [HA] %d => %d", bufflen, newct); // DEBUG
       haResizeBuffers(newct);
       bufflen = newct;
       return newct;
@@ -112,7 +112,7 @@ int haPadBuffers(const int count) {
 // - accessors
 
 int getTickHA(const int idx) {
-//   PrintFormat("getTickHA(%d)", idx); // DEBUG
+   // PrintFormat("getTickHA(%d)", idx); // DEBUG
    const int htk = TickHA[idx];
    return htk;
 }
@@ -211,7 +211,6 @@ int calcHA(const int count,
          HAClose[hidx] = hclose;
          hacprev = hclose;
          TickHA[tickidx] = hidx;
-
       }
       HAStart = start;
       HACount = hidx - start;
