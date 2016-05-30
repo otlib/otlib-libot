@@ -389,33 +389,29 @@ int calcTrends(const int count,
       // FIXME: Define chart-indexed accessors for HA ticks, before running the following.
       
       curLow = getTickHALow(n); // ?
-      // curLow = calcRateHLL(high[n], low[n]);
       curHigh = getTickHAHigh(n); // ?
-      // curHigh = calcRateHHL(high[n], low[n]);
-      //  rate = calcMax ? calcRateHHL(curHigh, curLow) : calcRateHLL(curHigh, curLow);
-      rate = calcMax ? getTickHAOpen(n) : getTickHAClose(n); // ??
-      // rate = getTickHAOpen; // ????
-
+      // rate = calcMax ? getTickHAOpen(n) : getTickHAClose(n); // ??
+      rate = calcMax ? curHigh : curLow; // ??
       if (calcMax && (rate >= pRate)) {
          // FIXME: log HA open rate
       // continuing trend rate > pRate - simple calc
          logDebug(StringFormat("Simple calcMax %f [%d]", rate, n));
          if(updsTrend) {
             moveTrendStart(nrTrends, n, time[n], rate); // FIXME: curHigh instead of rate?
-         } else {
+         } // else {
             pRate = rate;
             pTick = n;
-         }
+         // }
       } else if (!calcMax && (rate <= pRate)) {
          // FIXME: log HA close rate
       // continuing trend rate <= pRate - simple calc
          logDebug(StringFormat("Simple !calcMax %f [%d]", rate, n));
          if(updsTrend) {
             moveTrendStart(nrTrends, n, time[n], rate); // FIXME: curLow instead of rate?
-         } else {
+         } // else {
             pRate = rate;
             pTick = n;
-         }
+         // }
       } else if (!calcMax && !updsTrend &&
                   (nrTrends > 0) && 
                   (trendStartRate(nrTrends) < trendEndRate(nrTrends)) &&
@@ -425,7 +421,7 @@ int calcTrends(const int count,
       // [high|low].n >= sTrend.startRate > sTrend.endRate
       // i.e trend now develops in parallel with sStrend - no longer traversing a reversal.
       // do not log as reversal. invert the traversal logic. udpate pRate, sRate, sTrend
-         pRate = rate; // (curHigh > trendEndRate(nrTrends)) ? curHigh : curLow;
+         pRate = curHigh; // (curHigh > trendEndRate(nrTrends)) ? curHigh : curLow;
          calcMax = true;
          // sRate = pRate;
          
@@ -443,7 +439,7 @@ int calcTrends(const int count,
       // [low|high].n <= sTrend.startRate <= sTrend.endRate
       // i.e trend now develops in parallel with sStrend - no longer traversing a reversal.
       // do not log as reversal. invert the traversal logic. udpate pRate, sRate, sTrend
-         pRate = rate; // (curLow < trendEndRate(nrTrends)) ? curLow : curHigh;
+         pRate = curLow; // (curLow < trendEndRate(nrTrends)) ? curLow : curHigh;
          calcMax = false;
          // sRate = pRate;
          
