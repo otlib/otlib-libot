@@ -67,6 +67,7 @@ int bufflen;
 int haInitBuffers(int start, const int len) {
    // return number (count) of buffers (one indexed)
    // PrintFormat("haInitBuffers (%d .. %d)", start, len); // DEBUG
+   IndicatorBuffers(start + 7);
    initDrawBuffer(HABearTrc,start++,len,"Bear Tick Trace",DRAW_HISTOGRAM,2,false);
    initDrawBuffer(HABullTrc,start++,len,"Bull Tick Trace",DRAW_HISTOGRAM,2,false);
    initDrawBuffer(HAOpen,start++,len,"Bear Tick Body",DRAW_HISTOGRAM,2,false);
@@ -82,6 +83,7 @@ int haInitBuffersUndrawn(int start, const int len) {
    // Initialize all buffers as data buffers, without drawing configuration
    // return number (count) of buffers (one indexed)
    // PrintFormat("haInitBuffersUndrawn (%d .. %d)", start, len); // DEBUG
+   IndicatorBuffers(start + 7);
    initDataBufferDbl(HABearTrc,start++,len,false);
    initDataBufferDbl(HABullTrc,start++,len,false);
    initDataBufferDbl(HAOpen,start++,len,false);

@@ -56,10 +56,17 @@ const string label = "MinMax";
 
 // -
 
+void mmResizeBuffers(const int newsz) {
+   ArrayResize(MMMinTk, newsz, rsvbars); // not platform managed
+   ArrayResize(MMMaxTk, newsz, rsvbars); // not platform managed
+   haResizeBuffers(newsz);
+}
+
 int mmInitBuffers(int start) {
    const int mmnrbuffs = start + 5;   
    IndicatorBuffers(mmnrbuffs);    
    bufflen = iBars(NULL, 0);
+   PrintFormat("MM Init Buffers %d (%d)", start, bufflen);
    
    initDrawBuffer(MMDraw,start++,bufflen,"MinMax Change",DRAW_SECTION,0,true);
    SetIndexEmptyValue(0,dblz);
@@ -68,7 +75,11 @@ int mmInitBuffers(int start) {
    initDataBufferInt(MMMinTk,start++,bufflen);
    initDataBufferDbl(MMMaxRt,start++,bufflen);
    initDataBufferInt(MMMaxTk,start++,bufflen);
-   return haInitBuffers(start,bufflen);
+   mmResizeBuffers(bufflen);
+   mmZeroizeBuffers();
+   const int nrHA = haInitBuffersUndrawn(start,bufflen);
+   haResizeBuffers(bufflen);
+   return nrHA;
 }
 
 void mmZeroizeBuffers() {
@@ -82,16 +93,11 @@ void mmZeroizeBuffers() {
 }
 
 
-void mmResizeBuffers(const int newsz) {
-   ArrayResize(MMMinTk, newsz, rsvbars); // not platform managed
-   ArrayResize(MMMaxTk, newsz, rsvbars); // not platform managed
-   haResizeBuffers(newsz);
-}
-
 int mmPadBuffers(const int count) {
+  PrintFormat("Pad %d", count);
   if (count > bufflen) {
       const int newct = count + rsvbars; // X
-      // PrintFormat("Resize Buffers [MM] %d => %d", bufflen, newct); // DEBUG
+      PrintFormat("MM Pad - Resize Buffers [MM] %d => %d", bufflen, newct); // DEBUG
       mmResizeBuffers(newct);
       bufflen = newct;
       return newct;
@@ -113,35 +119,64 @@ void setDraw(const int idx, const double rate) {
    MMDraw[idx] = rate;
 }
 
+void setMax(const int idx, const double rate) {
+   PrintFormat("SetMax(%d, %f) [%d]", idx, rate, MMMaxCount);
+   setDraw(idx, rate);
+   MMMaxRt[MMMaxCount] = rate;
+   MMMaxTk[MMMaxCount] = idx; // array index out of range ??
+}
+
+void setMin(const int idx, const double rate) {
+   PrintFormat("SetMin(%d, %f) [%d]", idx, rate, MMMinCount);
+   setDraw(idx, rate);
+   MMMinRt[MMMinCount] = rate;
+   MMMinTk[MMMinCount] = idx; // array index out of range ??
+}
+
+
 int calcMinMax(const int ntick,
                const int prev_count) {
 
-   int tick = 0;
-   int prevTick = 1;
-   double rate = getTickHAOpen(tick);
-   double prevRate = getTickHAOpen(prevTick);
+   int tick, prevTick;
+   double rate, prevRate;
    
    double rtOpen, rtClose;
-   double lastMin = rate;
-   double lastMax = rate;
-   int lastMinTk = 0;
-   int lastMaxTk = 0;
+   double lastMin, lastMax;
+   int lastMinTk, lastMaxTk;
    
-   const double toCount = ntick - prev_count;
-   
-   if(prev_count == 0) {
-      mmZeroizeBuffers();
-   }
+   const int toCount = ntick - prev_count;
 
-   if (ntick <= prevTick) { 
+   if (ntick <= 1) { 
       return 0;
-   } else if(toCount > 0) { // when prev_count = 0 & when to record more data bars than in previous iteration
+   } else if(toCount > 1) { // when prev_count = 0 & when to record more data bars than in previous iteration
+   
+      // traverse market rate history from prev_count (probably 0, i.e current tick) to ntick (oldest)
+      
+      tick = 0;
+      prevTick = 1;
+      rate = getTickHAOpen(tick);
+      prevRate = getTickHAOpen(prevTick);
+      lastMin = rate;
+      lastMax = rate;
+      lastMinTk = 0;
+      lastMaxTk = 0;
+      
+      // FIXME: also initialize draw[0] rate, tick ? it should be later updated ...
+      // KLUDGE:
+      if(rate > prevRate) {
+         setMin(0,prevRate);
+         // MMMinCount++;
+      } else {
+         setMax(0,prevRate);
+         // MMMaxCount++;
+      }
+      
       for(int n = prev_count; n < (ntick - 1); n++) {
          tick = n;
          rtOpen = getTickHAOpen(n);
          rtClose = getTickHAClose(n);
          // select rate based on whether tick is a bear or a bull tick
-         rate = (rtOpen < rtClose) ? getTickHAHigh(n) : getTickHALow(n);
+         rate = (rtOpen < rtClose) ? getTickHALow(n) : getTickHAHigh(n);
          
          if(rate > prevRate) {  // FIXME: Rate for current tick not set 
             lastMax = rate;
@@ -153,11 +188,14 @@ int calcMinMax(const int ntick,
                // No comparison is made, here, to HA Low at lastMinTik
                // MMMinCount ...; // Last Min is already recorded
                
-               setDraw(lastMinTk, lastMin);
-               MMMaxCount ++; // current rate is already set as the last max
-            }
+               // set trend-open data for last min
+               setMin(lastMinTk, lastMin);
+               
+               // advance ...
+               MMMinCount++; // current rate is already set as the last max
+            } // else ?? ever ??
 
-         } else { // rate < prevRate
+         } else { // rate <= prevRate
             lastMin = rate;
             lastMinTk = tick;
          
@@ -167,28 +205,74 @@ int calcMinMax(const int ntick,
                // No comparison is made, here, to HA High at lastMinTik
                // MMMaxCount ...; // Last Max is already recorded
                
-               setDraw(lastMaxTk, lastMax);
-               MMMinCount++; // current rate is already set as the last min
-            }
+               // set trend-open data for last max
+               setMax(lastMaxTk, lastMax);
+               
+               // advance ...
+               MMMaxCount++; // current rate is already set as the last min
+            } // else ?? ever ??
          }
          prevTick = n;
          prevRate = rate;
       }
-      return ntick; 
+      // cleanup after last trend recorded - set the fist time-series trend open rate
+      if (MMMaxCount > MMMinCount) {
+         setMin(MMMinCount,rate);
+      } else {
+         setMax(MMMaxCount,rate);
+      }
+      
+      PrintFormat("CALC toCount %d RET %d (%d : %d)", toCount, ntick - 1, MMMinCount, MMMaxCount);
+      return ntick - 1; 
    } else {
       // typically called when prev_count = ntick, thus toCount = 0
       // sometimes called when ntick = prev_count + 1
       //      
-      // role: update up to zeroth data bar
-      // notes: typically called in realtime upadates, across timer durations shorter than market tick duration
-      for(int n = 0; n <= toCount; n++) {
-         if(rate > prevRate) {
-         
+      // role: update zeroth data bar and any additional data bars up to toCount
+      // notes: 
+      //  * typically called in realtime market chart upadates
+      //  * may be called across timer durations shorter than market tick duration
+      
+       // MMMinCount, MMMaxCount ...?
+      
+      bool forwardMin = (MMMaxCount > MMMinCount);
+
+      prevRate = forwardMin ? MMMaxRt[MMMaxCount] : MMMinRt[MMMinCount];
+      
+      lastMin = MMMinRt[MMMinCount];
+      lastMax = MMMaxRt[MMMaxCount];
+      lastMinTk = MMMinTk[MMMinCount]; // index out of range ??
+      lastMaxTk = MMMaxTk[MMMaxCount];
+      int n;
+      
+      for(n = toCount; n >= 0; n--) {
+         PrintFormat("Forward MM Calculate N %d", n);
+         rate = forwardMin ? getTickHALow(n) : getTickHAHigh(n);
+         if(forwardMin && (rate < lastMin)) {
+            lastMin = rate;
+            lastMinTk = n;
+            MMMinRt[MMMinCount] = rate;
+            MMMinTk[MMMinCount] = n;
+         } else if (!forwardMin && (rate > lastMax)) {
+            lastMax = rate;
+            lastMaxTk = n;
+            MMMaxRt[MMMaxCount] = rate;
+            MMMaxTk[MMMaxCount] = n;
          } else {
-         
-         }      
+            // X ! immediate rate reversal - update buffers, dispatching on forwardMin
+            if(forwardMin) {
+               setMin(lastMinTk,lastMin);
+               // MMMinCount++;
+            } else {
+               // MMMaxCount++;
+               setMax(lastMaxTk,lastMax);
+            }
+            forwardMin = !forwardMin;
+            setDraw(n,rate);
+         }
       }
-      return ntick;
+
+      return prev_count + n;
    }
 }
    
@@ -212,10 +296,14 @@ int OnCalculate(const int ntick,
                 const long &tick_volume[],
                 const long &volume[],
                 const int &spread[]) {
+
    mmPadBuffers(ntick);
  
    calcHA(ntick,prev_count,open,high,low,close);
-     
+
+   if(prev_count == 0) {
+      mmZeroizeBuffers();
+   }     
    return calcMinMax(ntick, prev_count);
    
 }
