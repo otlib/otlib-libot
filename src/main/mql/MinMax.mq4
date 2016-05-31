@@ -94,7 +94,7 @@ void mmZeroizeBuffers() {
 
 
 int mmPadBuffers(const int count) {
-  PrintFormat("Pad %d", count);
+  // PrintFormat("Pad %d", count);
   if (count > bufflen) {
       const int newct = count + rsvbars; // X
       PrintFormat("MM Pad - Resize Buffers [MM] %d => %d", bufflen, newct); // DEBUG
@@ -123,14 +123,14 @@ void setMax(const int idx, const double rate) {
    PrintFormat("SetMax(%d, %f) [%d]", idx, rate, MMMaxCount);
    setDraw(idx, rate);
    MMMaxRt[MMMaxCount] = rate;
-   MMMaxTk[MMMaxCount] = idx; // array index out of range ??
+   MMMaxTk[MMMaxCount] = idx;
 }
 
 void setMin(const int idx, const double rate) {
    PrintFormat("SetMin(%d, %f) [%d]", idx, rate, MMMinCount);
    setDraw(idx, rate);
    MMMinRt[MMMinCount] = rate;
-   MMMinTk[MMMinCount] = idx; // array index out of range ??
+   MMMinTk[MMMinCount] = idx;
 }
 
 
@@ -217,9 +217,9 @@ int calcMinMax(const int ntick,
       }
       // cleanup after last trend recorded - set the fist time-series trend open rate
       if (MMMaxCount > MMMinCount) {
-         setMin(MMMinCount,rate);
+         setMin(MMMaxCount,rate);
       } else {
-         setMax(MMMaxCount,rate);
+         setMax(MMMinCount,rate);
       }
       
       PrintFormat("CALC toCount %d RET %d (%d : %d)", toCount, ntick - 1, MMMinCount, MMMaxCount);
@@ -241,7 +241,7 @@ int calcMinMax(const int ntick,
       
       lastMin = MMMinRt[MMMinCount];
       lastMax = MMMaxRt[MMMaxCount];
-      lastMinTk = MMMinTk[MMMinCount]; // index out of range ??
+      lastMinTk = MMMinTk[MMMinCount];
       lastMaxTk = MMMaxTk[MMMaxCount];
       int n;
       
