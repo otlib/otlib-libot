@@ -27,16 +27,24 @@
  *
  */
 
-// - Metadata
 #property copyright "Sean Champ"
 #property link      "http://onename.com/spchamp"
-#property description "Autotrader Utility Header"
+#property description "Autorder script for paper trading - libat prototype"
 #property version   "1.00"
 #property strict
-#property library // FIXME TMP
-
-// NB: This file may be applied for compile-time testing into libat.mqh
-//
-// Not any functions defined in libat.mqh are defined with the function 'export' property
 
 #include "libat.mqh"
+#include "libha.mqh"
+
+input double AO_VOLUME = 0.02; // volume for order
+
+void OnStart() {
+   const int bars = iBars(NULL, 0);
+   haInitBuffersUndrawn(0,bars);
+   haPadBuffers(bars);
+
+   calcHA(bars,0,Open,High,Low,Close);
+
+   const bool buy = (getTickHAClose(0) > getTickHAOpen(0));
+   placeOrder(buy,AO_VOLUME);
+}

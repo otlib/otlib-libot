@@ -72,7 +72,7 @@ int cmdFor(const bool buy, const double rate) {
       if(rate < mktst) {
          return OP_SELLSTOP;
       } else if (rate > mktst) {
-         return OP_SELLLIMIT
+         return OP_SELLLIMIT;
       } else {
       // if (mkt > rate < mktst) ... TBD
          return OP_SELL;
