@@ -43,6 +43,78 @@ const double dblz   = 0.0; // use one 0.0 value for zero of type 'double'
 // - Memory Management
 const int rsvbars = 512;
 
+int pushAt (const int idx,
+            const double value, 
+            double &buffer[]) {
+ const int len = ArraySize(buffer);
+ int n;
+ for(n = len-1; n > idx; n--) {
+   buffer[n] = buffer[n - 1];
+ }
+ buffer[idx] = value;
+ return n;
+}
+
+int push (const double value, 
+          double &buffer[]) {
+ return pushAt(0,value,buffer);
+}
+
+int pushAt (const int idx,
+            const int value, 
+            int &buffer[]) {
+ const int len = ArraySize(buffer);
+ int n;
+ for(n = len-1; n > idx; n--) {
+   buffer[n] = buffer[n - 1];
+ }
+ buffer[idx] = value;
+ return n;
+}
+
+int push (const int value, 
+          int &buffer[]) {
+ return pushAt(0,value,buffer);
+}
+
+
+int pushAt (const int idx,
+            const long value, 
+            long &buffer[]) {
+ const int len = ArraySize(buffer);
+ int n;
+ for(n = len-1; n > idx; n--) {
+   buffer[n] = buffer[n - 1];
+ }
+ buffer[idx] = value;
+ return n;
+}
+
+int push (const long value, 
+          long &buffer[]) {
+ return pushAt(0,value,buffer);
+}
+
+
+int pushAt (const int idx,
+            const datetime value, 
+            datetime &buffer[]) {
+ const int len = ArraySize(buffer);
+ int n;
+ for(n = len-1; n > idx; n--) {
+   buffer[n] = buffer[n - 1];
+ }
+ buffer[idx] = value;
+ return n;
+}
+
+int push (const datetime value, 
+          datetime &buffer[]) {
+ return pushAt(0,value,buffer);
+}
+
+
+
 // functions also defined in libot.mq4 library
 // 
 // subset: functions applied in EA0 prototypes
@@ -116,6 +188,32 @@ double getStoplevel(const string symbol) {
 double getStoplevel() {
    return getStoplevel(NULL);
 }
+
+bool bearTick(const int index=0, const string symbol=NULL, const int tframe=0) {
+   // NB This function DOES NOT check for time-series array order
+   const double open = iOpen(symbol,tframe,index);
+   const double close = iClose(symbol,tframe,index);
+   return (open > close);
+}
+
+bool ocReversal(int start=0,  int period=1, int symbol=NULL, int tframe=0) {
+   // calculate whether market performs a market trend reversal
+   // bear=>bull or bull=>bear starting at index START
+   // then to end of PERIOD duration in chart ticks
+   //
+   // this calculation is performed onto chart tick {open, close} data 
+   // at the indicated timeframe, onto the data record for the specified symbol
+   // (current chart symbol if NULL)
+   if(period <= 0} {
+      PrintFormat("Program Warning - calcReversal with period %d", period); // DEBUG_WARN
+      return false;
+   } {
+      bool btStart = bearTick(start, symbol, tframe);
+      bool btEnd = bearTick(start + period, symbol, tframe);
+      return (btStart != btEnd);
+   }
+}
+
 
 // - Utility Functions - Rate Calculation
 

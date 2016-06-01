@@ -52,6 +52,13 @@ int      MMMaxTk[];
 int MMMinCount = 0;
 int MMMaxCount = 0;
 
+double FirstMin = dblz;
+double FirstMax = dblz;
+int FirstMinTk = -1;
+int FirstMaxTk = -1;
+datetime FirstMinDT = 0;
+datetime FirstMaxDT = 0;
+
 const string label = "MinMax";
 
 // -
@@ -85,6 +92,12 @@ int mmInitBuffers(int start) {
 void mmZeroizeBuffers() {
    MMMinCount = 0;
    MMMaxCount = 0;
+   FirstMin = dblz;
+   FirstMax = dblz;
+   FirstMinTk = -1;
+   FirstMaxTk = -1;
+   FirstMinDT = 0;
+   FirstMaxDT = 0;
    ArrayInitialize(MMDraw,dblz);
    ArrayInitialize(MMMinRt,dblz);
    ArrayInitialize(MMMaxRt,dblz);
@@ -107,7 +120,7 @@ int mmPadBuffers(const int count) {
 }
 // -
 
-double getLastTrend() {
+double getOldestTrend() {
    if(MMMinCount > MMMaxCount) {
       return MMMinRt[MMMinCount] - MMMaxRt[MMMaxCount];
    } else {
@@ -116,26 +129,81 @@ double getLastTrend() {
 }
 
 void setDraw(const int idx, const double rate) {
+   // mmPadBuffers(idx + 1);
    MMDraw[idx] = rate;
 }
 
-void setMax(const int idx, const double rate) {
-   PrintFormat("SetMax(%d, %f) [%d]", idx, rate, MMMaxCount);
+/*
+void pushDraw(const int idx, const double rate) {
+   push(rate,MMDraw); // ??? NOPE
+}
+*/
+
+
+void setMax(const int maxidx, const int idx, const double rate) {
+   PrintFormat("SetMax(%d, %d, %f) [%d]", maxidx, idx, rate, MMMaxCount);
    setDraw(idx, rate);
-   MMMaxRt[MMMaxCount] = rate;
-   MMMaxTk[MMMaxCount] = idx;
+   MMMaxRt[maxidx] = rate;
+   MMMaxTk[maxidx] = idx;
+   if(maxidx == 0) { 
+      FirstMax = rate;
+      FirstMaxTk = idx;
+      FirstMaxDT = iTime(NULL,0,idx);
+   }
+
+}
+
+
+void setMax(const int idx, const double rate) {
+   setMax(MMMaxCount, idx, rate);
+}
+
+
+void pushMax(const int idx, const double rate) {
+   PrintFormat("PushMax(%d, %f)", idx, rate);
+   push(rate, MMMaxRt);
+   push(idx, MMMaxTk);
+   // pushDraw(idx,rate);
+   setDraw(idx,rate);
+   FirstMax = rate;
+   FirstMaxTk = idx;
+   FirstMaxDT = iTime(NULL,0,idx);
+}
+
+
+void setMin(const int minidx, const int idx, const double rate) {
+   PrintFormat("SetMin(%d, %d, %f) [%d]", minidx, idx, rate, MMMinCount);
+   setDraw(idx, rate);
+   MMMinRt[minidx] = rate;
+   MMMinTk[minidx] = idx;
+   if(minidx == 0) { 
+      FirstMin = rate;
+      FirstMinTk = idx;
+      FirstMinDT = iTime(NULL,0,idx);
+   }
 }
 
 void setMin(const int idx, const double rate) {
-   PrintFormat("SetMin(%d, %f) [%d]", idx, rate, MMMinCount);
-   setDraw(idx, rate);
-   MMMinRt[MMMinCount] = rate;
-   MMMinTk[MMMinCount] = idx;
+   setMin(MMMinCount, idx, rate);
 }
 
 
+void pushMin(const int idx, const double rate) {
+   PrintFormat("PushMin(%d, %f)", idx, rate);
+   push(rate, MMMinRt);
+   push(idx, MMMinTk);
+   // pushDraw(idx,rate);
+   setDraw(idx,rate);
+   FirstMin = rate;
+   FirstMinTk = idx;
+   FirstMinDT = iTime(NULL,0,idx);
+}
+
+
+
 int calcMinMax(const int ntick,
-               const int prev_count) {
+               const int prev_count,
+               const datetime &time[]) {
 
    int tick, prevTick;
    double rate, prevRate;
@@ -154,7 +222,7 @@ int calcMinMax(const int ntick,
       
       tick = 0;
       prevTick = 1;
-      rate = getTickHAOpen(tick);
+      rate = getTickHAClose(tick);
       prevRate = getTickHAOpen(prevTick);
       lastMin = rate;
       lastMax = rate;
@@ -165,11 +233,15 @@ int calcMinMax(const int ntick,
       // KLUDGE:
       if(rate > prevRate) {
          setMin(0,prevRate);
-         // MMMinCount++;
+         FirstMin = prevRate;
+         FirstMinTk = 0;
       } else {
          setMax(0,prevRate);
-         // MMMaxCount++;
+         FirstMax = prevRate;
+         FirstMaxTk = 0;
       }
+      
+      // FIXME: Consider reimplementing as to precede from oldest tick to newest tick
       
       for(int n = prev_count; n < (ntick - 1); n++) {
          tick = n;
@@ -182,24 +254,24 @@ int calcMinMax(const int ntick,
             lastMax = rate;
             lastMaxTk = tick;
 
-            if(lastMinTk == prevTick) {
+            // if(lastMinTk == prevTick) {
                // assume this begins a new, possibly short duration trend.
                //
                // No comparison is made, here, to HA Low at lastMinTik
                // MMMinCount ...; // Last Min is already recorded
                
                // set trend-open data for last min
-               setMin(lastMinTk, lastMin);
-               
+               setMin(lastMinTk, lastMin);                              
+
                // advance ...
                MMMinCount++; // current rate is already set as the last max
-            } // else ?? ever ??
+            // } // else no further update (?)
 
          } else { // rate <= prevRate
             lastMin = rate;
             lastMinTk = tick;
          
-            if(lastMaxTk == prevTick) {
+            // if(lastMaxTk == prevTick) {
                // assume this begins a new, possibly short duration trend
                //
                // No comparison is made, here, to HA High at lastMinTik
@@ -210,20 +282,25 @@ int calcMinMax(const int ntick,
                
                // advance ...
                MMMaxCount++; // current rate is already set as the last min
-            } // else ?? ever ??
+            // } // else no further update (?)
          }
          prevTick = n;
          prevRate = rate;
       }
-      // cleanup after last trend recorded - set the fist time-series trend open rate
-      if (MMMaxCount > MMMinCount) {
-         setMin(MMMaxCount,rate);
-      } else {
-         setMax(MMMinCount,rate);
-      }
       
-      PrintFormat("CALC toCount %d RET %d (%d : %d)", toCount, ntick - 1, MMMinCount, MMMaxCount);
-      return ntick - 1; 
+      // PrintFormat("CALC toCount %d RET %d (%d : %d)", toCount, ntick - 1, MMMinCount, MMMaxCount);
+      
+      // cleanup after last trend recorded - set the fist time-series trend open rate
+      // return ntick - index-of-time-series-first-trend-open
+      if (MMMinTk[0] < MMMaxTk[0]) { // minimum trend at newer index
+         setMin(0, prev_count, getTickHAHigh(0));
+         return ntick - FirstMinTk;
+      } else {
+         setMax(0, prev_count, getTickHALow(0));
+         return ntick - FirstMaxTk;
+      }
+
+      /// return ntick - 1; 
    } else {
       // typically called when prev_count = ntick, thus toCount = 0
       // sometimes called when ntick = prev_count + 1
@@ -235,44 +312,65 @@ int calcMinMax(const int ntick,
       
        // MMMinCount, MMMaxCount ...?
       
-      bool forwardMin = (MMMaxCount > MMMinCount);
-
-      prevRate = forwardMin ? MMMaxRt[MMMaxCount] : MMMinRt[MMMinCount];
+      PrintFormat("Forward calc %d, %d", ntick, prev_count);
       
-      lastMin = MMMinRt[MMMinCount];
-      lastMax = MMMaxRt[MMMaxCount];
-      lastMinTk = MMMinTk[MMMinCount];
-      lastMaxTk = MMMaxTk[MMMaxCount];
+      // FIXME: MMMaxRT, MMMinRT no longer to be applied here
+      // Instead, dispatch on FirstMax... , FirstMin...
+      
+      bool forwardMin = (FirstMaxTk < FirstMinTk);
+
+      prevRate = forwardMin ? FirstMax : FirstMin;
+      prevTick = forwardMin ? FirstMaxTk : FirstMinTk;
+      
+      lastMin = FirstMin;
+      lastMax = FirstMax; 
+      lastMinTk = FirstMinTk;
+      lastMaxTk = FirstMaxTk;
       int n;
       
       for(n = toCount; n >= 0; n--) {
-         PrintFormat("Forward MM Calculate N %d", n);
          rate = forwardMin ? getTickHALow(n) : getTickHAHigh(n);
-         if(forwardMin && (rate < lastMin)) {
+         if(forwardMin && (rate <= lastMin)) {
             lastMin = rate;
             lastMinTk = n;
-            MMMinRt[MMMinCount] = rate;
-            MMMinTk[MMMinCount] = n;
-         } else if (!forwardMin && (rate > lastMax)) {
+            setMin(0,n,rate); // X 0 ?? // SET[0] => UPDATE[0]
+         } else if (!forwardMin && (rate >= lastMax)) {
             lastMax = rate;
             lastMaxTk = n;
-            MMMaxRt[MMMaxCount] = rate;
-            MMMaxTk[MMMaxCount] = n;
+            setMax(0,n,rate); // X 0 ?? // SET[0] => UPDATE[0]
          } else {
-            // X ! immediate rate reversal - update buffers, dispatching on forwardMin
-            if(forwardMin) {
-               setMin(lastMinTk,lastMin);
-               // MMMinCount++;
+            // X ! immediate rate reversal (?!...) - update buffers, dispatching on forwardMin
+            if(forwardMin && rate > lastMin) { // => rate !< lastMin
+               if (FirstMinDT == time[0]) { // NOT ENOUGH A CHECK
+                  setMin(0,lastMinTk,lastMin); // SET[0] => UPDATE[0]
+               } else { // CALLED WAY TOO OFTEN
+                  pushMin(lastMinTk,lastMin); // PUSH[0] => ADD NEW MIN
+               }
+               // RESET FOR !forwardMin (THIS CALL)
+               lastMax = rate;
+               lastMaxTk = n;
+               forwardMin = !forwardMin;
+            } else if (!forwardMin && rate < lastMax) { // => rate !> lastMax
+               if (FirstMaxDT == time[0]) { // NOT ENOUGH A CHECK
+                  setMax(0,lastMaxTk,lastMax); // SET[0] => UPDATE[0]
+               } else { // CALLED WAY TOO OFTEN
+                  pushMax(lastMaxTk,lastMax); // PUSH[0] => ADDD NEW MAX
+               }
+               // RESET FOR !forwardMin (THIS CALL)
+               lastMin = rate;
+               lastMinTk = n;
+               forwardMin = !forwardMin;
             } else {
-               // MMMaxCount++;
-               setMax(lastMaxTk,lastMax);
+               PrintFormat("?????");
             }
-            forwardMin = !forwardMin;
-            setDraw(n,rate);
+            
          }
+         prevRate = rate;
+         prevTick = n;
       }
 
-      return prev_count + n;
+      // return prev_count + n;
+      return ntick;
    }
 }
    
@@ -297,13 +395,13 @@ int OnCalculate(const int ntick,
                 const long &volume[],
                 const int &spread[]) {
 
-   mmPadBuffers(ntick);
+//   mmPadBuffers(ntick);
  
    calcHA(ntick,prev_count,open,high,low,close);
 
    if(prev_count == 0) {
       mmZeroizeBuffers();
    }     
-   return calcMinMax(ntick, prev_count);
+   return calcMinMax(ntick, prev_count, time);
    
 }
