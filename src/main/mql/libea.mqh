@@ -204,10 +204,10 @@ bool ocReversal(int start=0,  int period=1, int symbol=NULL, int tframe=0) {
    // this calculation is performed onto chart tick {open, close} data 
    // at the indicated timeframe, onto the data record for the specified symbol
    // (current chart symbol if NULL)
-   if(period <= 0} {
+   if(period <= 0) {
       PrintFormat("Program Warning - calcReversal with period %d", period); // DEBUG_WARN
       return false;
-   } {
+   } else {
       bool btStart = bearTick(start, symbol, tframe);
       bool btEnd = bearTick(start + period, symbol, tframe);
       return (btStart != btEnd);

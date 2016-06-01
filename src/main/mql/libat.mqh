@@ -120,14 +120,14 @@ int placeOrder(const bool buy, const double rate, const double volume, const str
    const int cmd = cmdFor(buy,rate);
    if (cmd > 0) {
       // NB: no slippage rate, SL, TP, timed expiration
-      return orderNr = OrderSend(symbol,cmd,volume,rate,0,0,0,comment,idx);
+      return OrderSend(symbol,cmd,volume,rate,0,0,0,comment,idx);
    } else {
       return cmd;
    }
 }
 
 bool orderKindBuy(const int kind) {
-   if((kind == OP_BUY) || (kind == OP_BUYLIMIT) || (kind == OP_BUYSTOP) {
+   if((kind == OP_BUY) || (kind == OP_BUYLIMIT) || (kind == OP_BUYSTOP)) {
       return true;
    } else {
       // NB: Does not exhaustively validate the provided 'kind' value
@@ -141,7 +141,7 @@ int closeOrder(const int tkt) {
       const double initvol = OrderLots();
       const int kind = OrderType();
       const bool closeBuy = orderKindBuy(kind);
-      const double colsep = closeBuy ? getOfferPrice() : getAskPrice(); // ?
+      const double closep = closeBuy ? getOfferPrice() : getAskPrice(); // ?
    // CLOSE ORDER AT CURRENT MARKET PRICE (Ask or Offer, depending on order kind), INITIAL NUMBER OF LOTS, 0 SLIPPAGE
       return OrderClose(tkt, initvol, closep, 0, CLR_NONE);      
    } else { 
