@@ -27,11 +27,21 @@
  *
  */
 
+/*
+
+Simple Model for Autotrading:
+
+1) Logic for order open
+2) Logic for order close
+
+*/
+
 #property copyright "Sean Champ"
 #property link      "http://onename.com/spchamp"
 #property description "Autorder script for paper trading - libat prototype"
 #property version   "1.00"
 #property strict
+#property script_show_inputs
 
 #include "libat.mqh"
 #include "libha.mqh"

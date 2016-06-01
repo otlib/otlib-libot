@@ -37,7 +37,20 @@
 
 #include "libea.mqh"
 
-// FIXME: Test in realtime paper trading
+// - Utility Functions - Order Orchestration
+
+int orderTick(const int tkt, const int tframe=0, const bool exact=false) {
+  const bool selp = OrderSelect(tkt,SELECT_BY_TICKET);
+  if (selp) {
+   // NB: Following functions use the currently selected ticket, "current thread"
+   const datetime dt = OrderOpenTime(); 
+   const string sym = OrderSymbol();
+   return iBarShift(sym,tframe,dt,exact); // may return -1
+  } else {
+   return -1;
+  }
+}
+
 
 int cmdFor(const bool buy, const double rate) {
    // FIXME: Documentation
@@ -81,7 +94,7 @@ int cmdFor(const bool buy, const double rate) {
    return -1; // FIXME tmp
 }
 
-double placeOrder(const bool buy, const double volume, const string comment=NULL, const int idx=0) {
+int placeOrder(const bool buy, const double volume, const string comment=NULL, const int idx=0) {
 // place an order to open at current market rate, on current currency symbol
    // FIXME struct MqlTradeRequest not documented (MQL4)
    const string symbol = getCurrentSymbol();
@@ -95,18 +108,43 @@ double placeOrder(const bool buy, const double volume, const string comment=NULL
       cmd = OP_SELL;
    }
    // NB: no slippage rate, SL, TP, timed expiration
-   const double orderNr = OrderSend(symbol,cmd,volume,mkt,0,0,0,comment,idx);
+   const int orderNr = OrderSend(symbol,cmd,volume,mkt,0,0,0,comment,idx);
    // NB: orderNr < 0 on failed call to OrderSend
    return orderNr;
 }
 
-double placeOrder(const bool buy, const double rate, const double volume, const string comment=NULL, const int idx=0) {
+int placeOrder(const bool buy, const double rate, const double volume, const string comment=NULL, const int idx=0) {
 // place a forward order to open at 'rate', on current currency symbol
 // NB: getStopLevel()
    const string symbol = getCurrentSymbol();
    const int cmd = cmdFor(buy,rate);
-   // NB: no slippage rate, SL, TP, timed expiration
-   const double orderNr = OrderSend(symbol,cmd,volume,rate,0,0,0,comment,idx);
-   // NB: orderNr < 0 on failed call to OrderSend
-   return orderNr;
+   if (cmd > 0) {
+      // NB: no slippage rate, SL, TP, timed expiration
+      return orderNr = OrderSend(symbol,cmd,volume,rate,0,0,0,comment,idx);
+   } else {
+      return cmd;
+   }
+}
+
+bool orderKindBuy(const int kind) {
+   if((kind == OP_BUY) || (kind == OP_BUYLIMIT) || (kind == OP_BUYSTOP) {
+      return true;
+   } else {
+      // NB: Does not exhaustively validate the provided 'kind' value
+      return false;
+   }
+}
+
+int closeOrder(const int tkt) {
+   const bool selok = OrderSelect(tkt,SELECT_BY_TICKET);
+   if (selok) {
+      const double initvol = OrderLots();
+      const int kind = OrderType();
+      const bool closeBuy = orderKindBuy(kind);
+      const double colsep = closeBuy ? getOfferPrice() : getAskPrice(); // ?
+   // CLOSE ORDER AT CURRENT MARKET PRICE (Ask or Offer, depending on order kind), INITIAL NUMBER OF LOTS, 0 SLIPPAGE
+      return OrderClose(tkt, initvol, closep, 0, CLR_NONE);      
+   } else { 
+      return -1;
+   }
 }
