@@ -83,23 +83,40 @@ enum ENUM_LOG_LEVEL {
 };
 
 enum ENUM_LOG_OPTIONS {
+   OPT_LOG_NONE = 0,      // Log No Events
    OPT_LOG_PROGRAM = 1,   // Log Program Events
    OPT_LOG_CALC = 3,      // Log Calc and Program Events
    OPT_LOG_ORDER = 7,     // Log Order, Calc, Program Events
-   OPT_LOG_DRAW = 15       // Log Draw, Order Calc, Program Events
+   OPT_LOG_DRAW = 15      // Log Draw, Order Calc, Program Events
 };
 
 enum ENUM_TF_PERIOD {
+   // Timeframe period as configured in input - see also ptf(..)
    TF_PERIOD_1 = 0,
    TF_PERIOD_2 = 1,
    TF_PERIOD_3 = 2
 };
 
+enum AT_TIME {
+   AT_TIME_NONE = -1, // Not Configured
+   AT_TIME_M1 = PERIOD_M1,    // 1 Minute
+   AT_TIME_M5 = PERIOD_M5,    // 5 Minutes
+   AT_TIME_M15 = PERIOD_M15,  // 15 Minutes
+   AT_TIME_M30 = PERIOD_M30,  // 30 Minutes
+   AT_TIME_H1 = PERIOD_H1,    // 1 Hour
+   AT_TIME_H4 = PERIOD_H4,    // 4 Hours
+   AT_TIME_D1 = PERIOD_D1,    // 1 Day
+   AT_TIME_W1 = PERIOD_W1,    // 1 Week
+   AT_TIME_MN = PERIOD_MN1    // 1 Month
+};
+
+
 
 // - EA Input Parameters
 
+input bool AT_ALWAYS=false; // Open order on EA activation
 input double AT_VOLUME=0.02;   // Volume for mechanically opened orders
-input ENUM_AT_CMD AT_CMD_OP = OP_AT_SELL; // Activate autotrading for Sell, Buy, or Any
+// input ENUM_AT_CMD AT_CMD_OP = OP_AT_SELL; // Activate autotrading for Sell, Buy, or Any // unused
 input int AT_M_PERIOD = 5;  // Period for MA of Main Indicator Graph
 input int AT_S_PERIOD = 10; // Period for MA of Signal Indicator Graph
 input int AT_O_PERIOD = 5;  // Offset for MA of Signal Indicator Graph
@@ -109,16 +126,17 @@ input ENUM_APPLIED_PRICE   AT_P_METHOD = PRICE_TYPICAL; // Rate Calculation meth
 input bool AST_REV_ENAB = true; // Enable algorithmic reversal stop
 input bool AST_XOV_ENAB = true; // Enable algorithmic crossover stop
 input int C_TIME   = 200;  // Duration (milliseconds) for calculation timer
-input ENUM_TIMEFRAMES AT_PERIOD1 = PERIOD_M1;   // Primary Period for Event Calculations
-input ENUM_TIMEFRAMES AT_PERIOD2 = PERIOD_M5;   // Secondary Period for Event Calculations
-input ENUM_TIMEFRAMES AT_PERIOD3 = PERIOD_M15;  // Tertiary Period for Event Calculations
+input AT_TIME AT_PERIOD1 = PERIOD_M1;   // Primary Period for Event Calculations
+input AT_TIME AT_PERIOD2 = PERIOD_M5;   // Secondary Period for Event Calculations
+input AT_TIME AT_PERIOD3 = PERIOD_M15;  // Tertiary Period for Event Calculations
+input int CALC_DEPTH = 3; // Depth for market history calculation
 input ENUM_LOG_OPTIONS AT_LOGLEVEL = OPT_LOG_DRAW; // Log Level
 
 // FIXME: ENSURE DATA REINITIALIZED AFTER CHANGE IN AT_PERIOD1, AT_PERIOD2, AT_PERIOD3
 // I.E WHEN EA RESTARTED AFTER PREVIOUS DEINIT DUE TO REASON_PARAMETERS
 
-// NB: INTERPRET AT_PERIOD1 .. AT_PERIOD3 == PERIOD_CURRENT as meaning "UNDEFINED" - alternate to defining another enum type
-// NB: At least one of AT_PERIOD1, AT_PERIOD2, AT_PERIOD3  must be != PERIOD_CURRENT
+// NB: INTERPRET AT_PERIOD1 .. AT_PERIOD3 == AT_TIME_NONE as meaning "UNDEFINED" - alternate to defining another enum type
+// NB: At least one of AT_PERIOD1, AT_PERIOD2, AT_PERIOD3  must be != AT_TIME_NONE
 
 // NB: If both AST_REV_ENAB and AST_XOV_ENAB = false, orders will not be mechanically closed with this program
 
@@ -130,7 +148,7 @@ const string label = "AT01";
 // if (order_main > 0), records the ticket number for the main order 
 // else indicates that no main order is open
 int order_main = -1;
-
+int calc_period;
 string EA_SYMBOL;
 
 /* // unused - metadata value
@@ -139,18 +157,20 @@ datetime dtzero_p2;
 datetime dtzero_p3;
 */
 
-const int BUFFLEN = 512;
-double MA_MDATA[512][3]; // main chart data - time frames 0, 1, 2
-double MA_SDATA[512][3]; // signal chart data - time frames 0, 1, 2
-double MA_TDATA[512][3]; // trend chart data - time frames 0, 1, 2
+#define BUFFLEN 1024
+double MA_MDATA[BUFFLEN][3]; // main chart data - time frames 0, 1, 2
+double MA_SDATA[BUFFLEN][3]; // signal chart data - time frames 0, 1, 2
+double MA_TDATA[BUFFLEN][3]; // trend chart data - time frames 0, 1, 2
 
 
 
 // - Utility
 
 void logMessage(const ENUM_LOG_LEVEL llevel, const string message) {
-   if((AT_LOGLEVEL & llevel) == 1) {
+   if(AT_LOGLEVEL != 0) {
+   // if(( AT_LOGLEVEL & llevel) != 0) {
       Print(message);
+   // }
    }
 }
 
@@ -164,13 +184,15 @@ int atHandleError() {
 
 void atValidateInputs() {
    logMessage(LOG_PROGRAM,__FUNCTION__);
-   if( (AT_PERIOD1 == PERIOD_CURRENT) 
-        && (AT_PERIOD2 == PERIOD_CURRENT) 
-        && (AT_PERIOD3 == PERIOD_CURRENT)) {
-      Print("Invalid Inputs - AT01 periods 1, 2, 3 are set to PERIOD_CURRENT");
+   if( (AT_PERIOD1 == AT_TIME_NONE) 
+        && (AT_PERIOD2 == AT_TIME_NONE) 
+        && (AT_PERIOD3 == AT_TIME_NONE)) {
+      Print("Invalid Inputs - AT01 periods 1, 2, 3 are set to AT_TIME_NONE");
       ExpertRemove();
    }
-   // FIXME: Validate BUFFLEN >= AT_<M|S|O|T>_PERIOD
+   if(calc_period > BUFFLEN) {
+      PrintFormat("Warning - calc_period %d greater than BUFFLEN %d. Consider adjusting EA period, depth parameters", calc_period, BUFFLEN);
+   }
 }
 
 int ptf(const ENUM_TF_PERIOD tfidx) {
@@ -190,6 +212,8 @@ int ptf(const ENUM_TF_PERIOD tfidx) {
 }
 
 void atInitData() {
+   // called again after EA change
+
    // initialize main, signal, and trend data buffers (drawn)
      
    // NB: SetIndexBuffer() not applicable for double[][]
@@ -200,12 +224,12 @@ void atInitData() {
    // update for each MA data buffer
    logMessage(LOG_PROGRAM,__FUNCTION__);
    IndicatorDigits(Digits+2);
-   ArraySetAsSeries(MA_MDATA,true);
-   ArraySetAsSeries(MA_SDATA,true);
-   ArraySetAsSeries(MA_TDATA,true);
-   ArrayFill(MA_MDATA,0,BUFFLEN,dblz);
-   ArrayFill(MA_SDATA,0,BUFFLEN,dblz);
-   ArrayFill(MA_TDATA,0,BUFFLEN,dblz);
+   // ArraySetAsSeries(MA_MDATA,true);
+   // ArraySetAsSeries(MA_SDATA,true);
+   // ArraySetAsSeries(MA_TDATA,true);
+   // ArrayFill(MA_MDATA,0,BUFFLEN,dblz);
+   // ArrayFill(MA_SDATA,0,BUFFLEN,dblz);
+   // ArrayFill(MA_TDATA,0,BUFFLEN,dblz);
    
    /*
    const int ptf1 = AT_PERIOD1;
@@ -214,7 +238,7 @@ void atInitData() {
    */
    
    // populate MA_MDATA, MA_SDATA, MA_TDATA up to BUFFLEN
-   atUpdateData(); // update only at n = 0 - may be all it needs in the program itself   
+   atUpdateData(calc_period); // update only at n = 0 - may be all it needs in the program itself   
 }
 
 void atDeinitData() {
@@ -223,28 +247,34 @@ void atDeinitData() {
    // FIXME: FREE BUFERS N/A for double[][]
    // assume that the platform will free memory otherwise, after program exit
    logMessage(LOG_PROGRAM,__FUNCTION__);
+   
+   // NB: This function was originally called from OnDeinit() in all instances.
+   // OnDeinit() may be called after an EA is updated, or after the active
+   // char window's timeframe is changed - evets at which it would not be
+   // advisable to ArrayFree these values.
    ArrayFree(MA_MDATA);
    ArrayFree(MA_SDATA);
    ArrayFree(MA_TDATA);
 }
 
-int atUpdateData() {
+int atUpdateData(const int period) {
    // UPDATE ALL TIMEFRAME 0..3 BUFFERS
    //
    // ALSO UPDATE DRAWN BUFFERS FOR CURRENT TIMEFRAME
    
    // return -1 on error
    
-   logMessage(LOG_PROGRAM,__FUNCTION__);
+   // logMessage(LOG_PROGRAM,__FUNCTION__);
    
    // FIXME: TIME/TICK SYNC BTW OnTick EVENTS ?
    // NOTE: This does not presently update any values beyond those at index 0
    const int ptf1 = AT_PERIOD1;
    const int ptf2 = AT_PERIOD2;
    const int ptf3 = AT_PERIOD3;
-   for(int n = 0; n < 2; n++) { // 2 because 2 points in analysis
+   // FIXME: Should update buffer to a stop period configured with an input value e.g 5
+   for(int n = 0; n < period; n++) { // 2 because 2 points in analysis
       // FIXME: This program-historic data buffering not very well needed in a non-visualized EA
-      MA_MDATA[n][0] = iMA(EA_SYMBOL,ptf1,AT_M_PERIOD,0,AT_MA_METHOD,AT_P_METHOD,n);
+      MA_MDATA[n][0] = iMA(EA_SYMBOL,ptf1,AT_M_PERIOD,0,AT_MA_METHOD,AT_P_METHOD,n); // X array out of bounds ? after chart timeframe change ?
       MA_MDATA[n][1] = iMA(EA_SYMBOL,ptf2,AT_M_PERIOD,0,AT_MA_METHOD,AT_P_METHOD,n);
       MA_MDATA[n][2] = iMA(EA_SYMBOL,ptf3,AT_M_PERIOD,0,AT_MA_METHOD,AT_P_METHOD,n);
       
@@ -256,6 +286,7 @@ int atUpdateData() {
       MA_TDATA[n][1] = iMA(EA_SYMBOL,ptf2,AT_T_PERIOD,0,AT_MA_METHOD,AT_P_METHOD,n);
       MA_TDATA[n][2] = iMA(EA_SYMBOL,ptf3,AT_T_PERIOD,0,AT_MA_METHOD,AT_P_METHOD,n);
    }
+   // logMessage(LOG_PROGRAM,__FUNCTION__ + " END");
    return 2;
 }
 
@@ -272,9 +303,9 @@ void atDeinitTimer() {
 
 /* // unused utility
 void updDTZero() {
-   if (AT_PERIOD1 != PERIOD_CURRENT) { dtzero_p1 = iTime(EA_SYMBOL, AT_PERIOD1, 0); }
-   if (AT_PERIOD2 != PERIOD_CURRENT) { dtzero_p2 = iTime(EA_SYMBOL, AT_PERIOD2, 0); }
-   if (AT_PERIOD3 != PERIOD_CURRENT) { dtzero_p3 = iTime(EA_SYMBOL, AT_PERIOD3, 0); }
+   if (AT_PERIOD1 != AT_TIME_NONE) { dtzero_p1 = iTime(EA_SYMBOL, AT_PERIOD1, 0); }
+   if (AT_PERIOD2 != AT_TIME_NONE) { dtzero_p2 = iTime(EA_SYMBOL, AT_PERIOD2, 0); }
+   if (AT_PERIOD3 != AT_TIME_NONE) { dtzero_p3 = iTime(EA_SYMBOL, AT_PERIOD3, 0); }
 }
 */
 
@@ -282,7 +313,7 @@ void updDTZero() {
 // - Order Orchestration
 
 bool calcMSXover(const ENUM_TF_PERIOD tfidx, const int start=0, const int period=1) { 
-   logMessage(LOG_CALC,__FUNCTION__);
+   // logMessage(LOG_CALC,__FUNCTION__);
    const double mst = MA_MDATA[start][tfidx];
    const double mend = MA_MDATA[start+period][tfidx];
    
@@ -298,8 +329,20 @@ bool calcMSXover(const ENUM_TF_PERIOD tfidx, const int start=0, const int period
 }
 
 bool calcMTXover(const ENUM_TF_PERIOD tfidx, const int start=0, const int period=1) { 
-   logMessage(LOG_CALC,__FUNCTION__);
+   // logMessage(LOG_CALC,__FUNCTION__);
 
+   /* e.g
+   MST = 5
+   MEND = 6
+   
+   TST = 6
+   TEND = 5
+   
+   DST = 5 - 6 = -2
+   DEND = 6 - 5 = 1
+   
+   */
+   
    const double mst = MA_MDATA[start][tfidx];
    const double mend = MA_MDATA[start+period][tfidx];
    
@@ -311,7 +354,7 @@ bool calcMTXover(const ENUM_TF_PERIOD tfidx, const int start=0, const int period
    
    // FIXME: log call at level LOG_CALC
    
-   // calculating crossover by change of positive/negative in diference
+   // calculating crossover by difference of difference ?
    return ((dst <= dblz && dend > dblz) || (dst > dblz && dend <= dblz));
 }
 
@@ -326,27 +369,28 @@ bool calcXoverX(const int start=0, const int period=1) {
    // EVENT CALC
    
    logMessage(LOG_CALC,__FUNCTION__);
-   if((AT_PERIOD1 != PERIOD_CURRENT) 
+   if((AT_PERIOD1 != AT_TIME_NONE) 
        && !(calcMSXover(TF_PERIOD_1,start,period))
        && !(calcMTXover(TF_PERIOD_1,start,period))) {
        return false;
-   } 
-   if((AT_PERIOD2 != PERIOD_CURRENT) 
+   } // else log ?
+   if((AT_PERIOD2 != AT_TIME_NONE) 
        && !(calcMSXover(TF_PERIOD_2,start,period))
        && !(calcMTXover(TF_PERIOD_2,start,period))) {
        return false;
-   } 
-   if((AT_PERIOD3 != PERIOD_CURRENT) 
+   } // else log ?
+   if((AT_PERIOD3 != AT_TIME_NONE) 
        && !(calcMSXover(TF_PERIOD_3,start,period))
        && !(calcMTXover(TF_PERIOD_3,start,period))) {
        return false;
    } else {
+      // FIXME: Log
       return true;
    }
 }
 
 int calcReversal(const ENUM_TF_PERIOD tfidx, const int start=0, const int duration=1) {
-   logMessage(LOG_CALC,__FUNCTION__);
+   // logMessage(LOG_CALC,__FUNCTION__);
    
    return ocReversal(start,duration,EA_SYMBOL,ptf(tfidx));
 }
@@ -358,24 +402,25 @@ int calcReversalX(const int start=0, const int period=1) {
    
    logMessage(LOG_CALC,__FUNCTION__);
    
-   if((AT_PERIOD1 != PERIOD_CURRENT) 
+   if((AT_PERIOD1 != AT_TIME_NONE) 
        && !(calcReversal(TF_PERIOD_1,start,period))) {
        return false;
    } 
-   if((AT_PERIOD2 != PERIOD_CURRENT) 
+   if((AT_PERIOD2 != AT_TIME_NONE) 
        && !(calcReversal(TF_PERIOD_2,start,period))) {
        return false;
    } 
-   if((AT_PERIOD3 != PERIOD_CURRENT) 
+   if((AT_PERIOD3 != AT_TIME_NONE) 
        && !(calcReversal(TF_PERIOD_3,start,period))) {
        return false;
    } else {
+   // FIXME: Log
       return true;
    }
 }
 
 double calcOCDiff(const ENUM_TF_PERIOD tfidx, const int idx=0) {
-   logMessage(LOG_CALC,__FUNCTION__);
+   // logMessage(LOG_CALC,__FUNCTION__);
    
    const double open = iOpen(EA_SYMBOL, ptf(tfidx), idx);
    const double close = iClose(EA_SYMBOL, ptf(tfidx), idx);
@@ -384,7 +429,7 @@ double calcOCDiff(const ENUM_TF_PERIOD tfidx, const int idx=0) {
 
 
 bool calcSpread(const ENUM_TF_PERIOD tfidx, const int idx=0) {
-   logMessage(LOG_CALC,__FUNCTION__);
+   // logMessage(LOG_CALC,__FUNCTION__);
    
    const double spread = getSpread(EA_SYMBOL);
    const double ocdiff = calcOCDiff(tfidx,idx);
@@ -394,22 +439,23 @@ bool calcSpread(const ENUM_TF_PERIOD tfidx, const int idx=0) {
 
 bool calcSpreadX(const int idx=0) {
    // getSpread() <= previous OC diff ?
-   // CALL FOR any tfidx 0,1,2 for which the corresponding AT_PERIOD1..AT_PERIOD3 != PERIOD_CURRENT ??
+   // CALL FOR any tfidx 0,1,2 for which the corresponding AT_PERIOD1..AT_PERIOD3 != AT_TIME_NONE ??
    
    logMessage(LOG_CALC,__FUNCTION__);
    
-   if((AT_PERIOD1 != PERIOD_CURRENT) 
+   if((AT_PERIOD1 != AT_TIME_NONE) 
        && !(calcSpread(TF_PERIOD_1, idx))) {
        return false;
    } 
-   if((AT_PERIOD2 != PERIOD_CURRENT) 
+   if((AT_PERIOD2 != AT_TIME_NONE) 
        && !(calcSpread(TF_PERIOD_2, idx))) {
        return false;
    } 
-   if((AT_PERIOD3 != PERIOD_CURRENT) 
+   if((AT_PERIOD3 != AT_TIME_NONE) 
        && !(calcSpread(TF_PERIOD_3, idx))) {
        return false;
    } else {
+   // FIXME: Log
       return true;
    }
 }
@@ -418,7 +464,7 @@ bool calcTrend(const bool isSell, const ENUM_TF_PERIOD tfidx, const int idx=0, c
    double trInitial = MA_TDATA[idx + duration][tfidx];
    double trFinal = MA_TDATA[idx][tfidx];
    
-   logMessage(LOG_CALC,__FUNCTION__);
+   // logMessage(LOG_CALC,__FUNCTION__);
    
    if (isSell) {
       return (trInitial >= trFinal);
@@ -429,45 +475,55 @@ bool calcTrend(const bool isSell, const ENUM_TF_PERIOD tfidx, const int idx=0, c
 
 bool calcTrendX(const bool isSell, const int idx=0, const int duration=1) {
    // dispatch on AT_CMD_OP, analyzing MA_TDATA[tfidx][0]
-   // CALL FOR any tfidx 0,1,2 for which the corresponding AT_PERIOD1..AT_PERIOD3 != PERIOD_CURRENT ??
+   // CALL FOR any tfidx 0,1,2 for which the corresponding AT_PERIOD1..AT_PERIOD3 != AT_TIME_NONE ??
    
    logMessage(LOG_CALC,__FUNCTION__);
-   if((AT_PERIOD1 != PERIOD_CURRENT) 
+   if((AT_PERIOD1 != AT_TIME_NONE) 
        && !(calcTrend(isSell, TF_PERIOD_1, idx, duration))) {
        return false;
    } 
-   if((AT_PERIOD2 != PERIOD_CURRENT) 
+   if((AT_PERIOD2 != AT_TIME_NONE) 
        && !(calcTrend(isSell, TF_PERIOD_2, idx, duration))) {
        return false;
    } 
-   if((AT_PERIOD3 != PERIOD_CURRENT) 
+   if((AT_PERIOD3 != AT_TIME_NONE) 
        && !(calcTrend(isSell, TF_PERIOD_3, idx, duration))) {
        return false;
    } else {
+   // FIXME: Log
       return true;
    }
 }
 
 int calcBuySell(const ENUM_TF_PERIOD tfidx, const int idx=0) {
-   logMessage(LOG_CALC,__FUNCTION__);
+   // logMessage(LOG_CALC,__FUNCTION__);
    const int tframe = ptf(tfidx);
    const bool isBear = bearTick(idx,EA_SYMBOL,tframe);
    return isBear ? OP_SELL : OP_BUY;
 }
+
+
+int calcBuySell(const int idx=0) {
+   // logMessage(LOG_CALC,__FUNCTION__);
+   const int tframe = PERIOD_CURRENT;
+   const bool isBear = bearTick(idx,EA_SYMBOL,tframe);
+   return isBear ? OP_SELL : OP_BUY;
+}
+
 
 int calcBuySellX(const int idx=0) {
    logMessage(LOG_CALC,__FUNCTION__);
    int cmd1 = -1;
    int cmd2 = -1;
    int cmd3 = -1;
-    if(AT_PERIOD1 != PERIOD_CURRENT) {
+    if(AT_PERIOD1 != AT_TIME_NONE) {
        cmd1 = calcBuySell(TF_PERIOD_1,idx);
    } 
-   if(AT_PERIOD2 != PERIOD_CURRENT) {
-       cmd2 = calcBuySell(TF_PERIOD_1,idx);
+   if(AT_PERIOD2 != AT_TIME_NONE) {
+       cmd2 = calcBuySell(TF_PERIOD_2,idx);
    } 
-   if(AT_PERIOD3 != PERIOD_CURRENT) {
-       cmd3 = calcBuySell(TF_PERIOD_1,idx);
+   if(AT_PERIOD3 != AT_TIME_NONE) {
+       cmd3 = calcBuySell(TF_PERIOD_3,idx);
    } 
 
    if((cmd2 != -1) && (cmd1 != -1) && (cmd2 != cmd1)) {
@@ -477,30 +533,26 @@ int calcBuySellX(const int idx=0) {
     } else if((cmd3 != -1) && (cmd1 != -1) && (cmd3 != cmd1)) {
          return -1;
     } else {
-       // COMPARE TO AT_CMD_OP
-       if(((cmd1 == OP_BUY)
+       // COMPARE TO AT_CMD_OP - REDUNDANT considering platform EA configuration options
+/*       if(((cmd1 == OP_BUY)
             && ((AT_CMD_OP == OP_AT_BUY) || (AT_CMD_OP == OP_AT_ANY)))
            ||  ((cmd1 == OP_SELL)
                   && ((AT_CMD_OP == OP_AT_SELL) || (AT_CMD_OP == OP_AT_ANY)))) {
+*/
          return cmd1; 
-       } else {
+/*       } else {
          return -1;
        }
-      
+*/      
     }
 }
 
-double unitsToLots (const double units) {
-   const double priceper = SymbolInfoDouble(EA_SYMBOL,SYMBOL_POINT);
-   return units / priceper; // ?
-}
 
 int atOpenOrder(const int cmd) {
 
    logMessage(LOG_ORDER,__FUNCTION__);
 
    // FIXME: VOLUME INTERPRETED IN UNIT OF LOTS - SEE ALSO libat.mqh
-   const double volume = unitsToLots(AT_VOLUME); // FIXME: TO DO
    const string comment=label + " Mechanicaly Opened Order";
    // const double rate = ... // calculated in placeOrder
    double rate;
@@ -515,7 +567,7 @@ int atOpenOrder(const int cmd) {
          rate = -1;
          break;
       }
-   const int order = placeOrder(cmd,rate,volume,comment,0); // FIXME: "Magic" number as static program identifier
+   const int order = placeOrder(cmd,rate,AT_VOLUME,comment,0); // FIXME: "Magic" number as static program identifier
    if (order > 0) {
       order_main = order;
    } 
@@ -527,7 +579,7 @@ int calcOrderOpen() {
    
    // called from OnTimer()
    
-   logMessage(LOG_ORDER,__FUNCTION__);
+   // logMessage(LOG_ORDER,__FUNCTION__);
    
    const int cmd = calcBuySellX(0); // market bear/bull tick state must correspond across all configured time frames
    if (cmd == -1) {
@@ -535,7 +587,7 @@ int calcOrderOpen() {
    } else {
       const bool spreadx = calcSpreadX(0);
       if (spreadx) {
-         const bool xoverx = calcXoverX(0,1);
+         const bool xoverx = calcXoverX(0,CALC_DEPTH);
          if(xoverx) {
             int order = atOpenOrder(cmd);
             return order;
@@ -589,6 +641,8 @@ void OnInit() {
    logMessage(LOG_PROGRAM,__FUNCTION__);
 
    EA_SYMBOL = ChartSymbol();
+      
+   calc_period = CALC_DEPTH * MathMax(AT_M_PERIOD,MathMax(AT_S_PERIOD + AT_O_PERIOD, AT_T_PERIOD));
 
    atValidateInputs();
    // - Init Visual Properties (NA for this EA?)
@@ -604,27 +658,34 @@ void OnDeinit(const int reason) {
 
    // see also: "Uninitialization Reason Codes" MQL4 ref
 
-   // Free Data
-   atDeinitData();
+   // Free Data - ONLY IF PROGRAM IS COMPLETELY EXITING
+   // atDeinitData();
    // Close Timer
    atDeinitTimer();
 }
 
+void OnTick() {
+   atUpdateData(calc_period);
+}
 
 void OnTimer() {
 // FIXME: log with level LOG_PROGRAM
-   logMessage(LOG_PROGRAM, __FUNCTION__);
+   // logMessage(LOG_PROGRAM, __FUNCTION__);
 
    // NB: This must ensure the graph data is already avaialble - return if OnCalculate not called yet
    int retv;
-   retv = atUpdateData();
+   retv = atUpdateData(0);
    
    if(retv < 0) { 
       atHandleError(); 
       return;
    }
+   // Not being called : calcOrderOpen ?
    if(order_main > 0) {
       retv = calcOrderClose(); // CONDITIONALLY CLOSES ORDER 
+   } else if (AT_ALWAYS) {
+      const int cmd = calcBuySell();
+      atOpenOrder(cmd);
    } else {
       retv = calcOrderOpen(); // CONDITIONALLY CALCULATES ORDER OPEN CMD, -1 IF NO OPEN
       if(retv < 0) {
@@ -635,5 +696,6 @@ void OnTimer() {
    }
    if(retv < 0) { 
       atHandleError(); 
+      return;
    }
 }
