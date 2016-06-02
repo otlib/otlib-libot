@@ -126,6 +126,13 @@ int placeOrder(const bool buy, const double rate, const double volume, const str
    }
 }
 
+int placeOrder(const int cmd, const double rate, const double volume, const string comment=NULL, const int idx=0) {
+// place a forward order to open at 'rate', on current currency symbol
+// NB: getStopLevel()
+   const string symbol = getCurrentSymbol();
+   return OrderSend(symbol,cmd,volume,rate,0,0,0,comment,idx);
+}
+
 bool orderKindBuy(const int kind) {
    if((kind == OP_BUY) || (kind == OP_BUYLIMIT) || (kind == OP_BUYSTOP)) {
       return true;
@@ -143,7 +150,12 @@ int closeOrder(const int tkt) {
       const bool closeBuy = orderKindBuy(kind);
       const double closep = closeBuy ? getOfferPrice() : getAskPrice(); // ?
    // CLOSE ORDER AT CURRENT MARKET PRICE (Ask or Offer, depending on order kind), INITIAL NUMBER OF LOTS, 0 SLIPPAGE
-      return OrderClose(tkt, initvol, closep, 0, CLR_NONE);      
+      const bool retv = OrderClose(tkt, initvol, closep, 0, CLR_NONE);
+      if(retv) {
+         return 0;
+      } else {
+         return -127;
+      }
    } else { 
       return -1;
    }

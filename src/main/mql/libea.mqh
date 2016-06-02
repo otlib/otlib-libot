@@ -113,6 +113,24 @@ int push (const datetime value,
  return pushAt(0,value,buffer);
 }
 
+int pushAt (const int idx,
+            const int buffnr,
+            const double value,
+            double &buffer[][]) {
+ const int len = ArraySize(buffer);
+ int n;
+ for(n = len-1; n > idx; n--) {
+   buffer[n][buffnr] = buffer[n - 1][buffnr];
+ }
+ buffer[idx][buffnr] = value;
+ return n;
+}
+
+int push (const double value,
+          const int buffnr,
+          double &buffer[][]) {
+ return pushAt(0,buffnr,value,buffer);
+}
 
 
 // functions also defined in libot.mq4 library

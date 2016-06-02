@@ -131,9 +131,11 @@ int order_main = -1;
 
 string EA_SYMBOL;
 
+/* // unused - metadata value
 datetime dtzero_p1;
 datetime dtzero_p2;
 datetime dtzero_p3;
+*/
 
 double MA_MDATA[][TF_PERIOD_3]; // main chart data - time frames 0, 1, 2
 double MA_SDATA[][TF_PERIOD_3]; // signal chart data - time frames 0, 1, 2
@@ -167,6 +169,9 @@ void atValidateInputs() {
 }
 
 int ptf(const ENUM_TF_PERIOD tfidx) {
+   // return timeframe for chart-local period record
+   //
+   // implicitly coerces return value to int type
    switch(tfidx) {
       case TF_PERIOD_1:
          return AT_PERIOD1;
@@ -186,20 +191,14 @@ void atInitData() {
 
    // FIXME: SetIndexBuffer N/A in EA type programs
    // initDrawBuffer(MA_MDATA0,0,bufflen);
-   // initDrawBuffer(MA_SDATA0,1,bufflen);
-   // initDrawBuffer(MA_TDATA0,2,bufflen);
-   // initDrawBuffer(MA_MDATA1,0,bufflen);
-   // initDrawBuffer(MA_SDATA1,1,bufflen);
-   // initDrawBuffer(MA_TDATA1,2,bufflen);
-   // initDrawBuffer(MA_MDATA2,0,bufflen);
-   // initDrawBuffer(MA_SDATA2,1,bufflen);
-   // initDrawBuffer(MA_TDATA2,2,bufflen);
-   
-   
-   
+   // .. NA.
+
    // FIXME: Try out the simple array-as-stack implementation in libea.mqh ?
-
-
+   // update for
+   //
+   // double MA_MDATA[0..N][0..2]; // main chart data - time frames 0, 1, 2
+   // double MA_SDATA[0..N][0..2]; // signal chart data - time frames 0, 1, 2
+   // double MA_TDATA[0..N][0..2]; // trend chart data - time frames 0, 1, 2
 
 }
 
@@ -213,6 +212,8 @@ int atUpdateData() {
    // UPDATE ALL TIMEFRAME 0..3 BUFFERS
    //
    // ALSO UPDATE DRAWN BUFFERS FOR CURRENT TIMEFRAME
+   
+   // return -1 on error
 }
 
 void atInitTimer() {
@@ -224,11 +225,13 @@ void atDeinitTimer() {
    EventKillTimer();
 }
 
+/* // unused utility
 void updDTZero() {
    if (AT_PERIOD1 != PERIOD_CURRENT) { dtzero_p1 = iTime(EA_SYMBOL, AT_PERIOD1, 0); }
    if (AT_PERIOD2 != PERIOD_CURRENT) { dtzero_p2 = iTime(EA_SYMBOL, AT_PERIOD2, 0); }
    if (AT_PERIOD3 != PERIOD_CURRENT) { dtzero_p3 = iTime(EA_SYMBOL, AT_PERIOD3, 0); }
 }
+*/
 
 
 // - Order Orchestration
@@ -338,7 +341,7 @@ bool calcSpread(const ENUM_TF_PERIOD tfidx, const int idx=0) {
 }
 
 
-bool calcSpreadX(const ENUM_TF_PERIOD tfidx, const int idx=0) {
+bool calcSpreadX(const int idx=0) {
    // getSpread() <= previous OC diff ?
    // CALL FOR any tfidx 0,1,2 for which the corresponding AT_PERIOD1..AT_PERIOD3 != PERIOD_CURRENT ??
    
@@ -359,60 +362,165 @@ bool calcSpreadX(const ENUM_TF_PERIOD tfidx, const int idx=0) {
    }
 }
 
-bool calcTrendX(const ENUM_TF_PERIOD tfidx) {
+bool calcTrend(const bool isSell, const ENUM_TF_PERIOD tfidx, const int idx=0, const int duration=1) {
+   double trInitial = MA_TDATA[idx + duration][tfidx];
+   double trFinal = MA_TDATA[idx][tfidx];
+   
+   if (isSell) {
+      return (trInitial >= trFinal);
+   } else {
+      return (trInitial < trFinal);
+   }
+}
+
+bool calcTrendX(const bool isSell, const int idx=0, const int duration=1) {
    // dispatch on AT_CMD_OP, analyzing MA_TDATA[tfidx][0]
    // CALL FOR any tfidx 0,1,2 for which the corresponding AT_PERIOD1..AT_PERIOD3 != PERIOD_CURRENT ??
    
    // FIXME: log call at level LOG_CALC
-   
-   // ... => calcTrend
+   if((AT_PERIOD1 != PERIOD_CURRENT) 
+       && !(calcTrend(isSell, TF_PERIOD_1, idx, duration))) {
+       return false;
+   } 
+   if((AT_PERIOD2 != PERIOD_CURRENT) 
+       && !(calcTrend(isSell, TF_PERIOD_2, idx, duration))) {
+       return false;
+   } 
+   if((AT_PERIOD3 != PERIOD_CURRENT) 
+       && !(calcTrend(isSell, TF_PERIOD_3, idx, duration))) {
+       return false;
+   } else {
+      return true;
+   }
 }
 
-int calcOrderOpen() {
-   // if XOVER, SPREAD, TRENDX ... for all configured time frames ... => openOrder(...)
-   
-   // FIXME: log call at level LOG_CALC
-   
-   // ... => branching call
-
+int calcBuySell(const ENUM_TF_PERIOD tfidx, const int idx=0) {
+   const int tframe = ptf(tfidx);
+   const bool isBear = bearTick(idx,EA_SYMBOL,tframe);
+   return isBear ? OP_SELL : OP_BUY;
 }
 
-int calcOrderClose() {
-   // if  AST_REV_ENAB and calcReversal ... for all configured time frames ... => closeOrder
-   
-   // if  AST_XOV_ENAB and calcXover ... for all configured time frames ... => closeOrder
-   
-   // FIXME: log call at level LOG_CALC
-   
-   // ... => two-step call
+int calcBuySellX(const int idx=0) {
+   int cmd1 = -1;
+   int cmd2 = -1;
+   int cmd3 = -1;
+    if(AT_PERIOD1 != PERIOD_CURRENT) {
+       cmd1 = calcBuySell(TF_PERIOD_1,idx);
+   } 
+   if(AT_PERIOD2 != PERIOD_CURRENT) {
+       cmd2 = calcBuySell(TF_PERIOD_1,idx);
+   } 
+   if(AT_PERIOD3 != PERIOD_CURRENT) {
+       cmd3 = calcBuySell(TF_PERIOD_1,idx);
+   } 
 
+   if((cmd2 != -1) && (cmd1 != -1) && (cmd2 != cmd1)) {
+         return -1;
+    } else if((cmd2 != -1) && (cmd3 != -1) && (cmd2 != cmd3)) {
+         return -1;
+    } else if((cmd3 != -1) && (cmd1 != -1) && (cmd3 != cmd1)) {
+         return -1;
+    } else {
+       // COMPARE TO AT_CMD_OP
+       if(((cmd1 == OP_BUY)
+            && ((AT_CMD_OP == OP_AT_BUY) || (AT_CMD_OP == OP_AT_ANY)))
+           ||  ((cmd1 == OP_SELL)
+                  && ((AT_CMD_OP == OP_AT_SELL) || (AT_CMD_OP == OP_AT_ANY)))) {
+         return cmd1; 
+       } else {
+         return -1;
+       }
+      
+    }
 }
 
-int atOpenOrder(const bool buy) {
+int atOpenOrder(const int cmd) {
 
    // FIXME: log call at level LOG_ORDER
 
    // FIXME: VOLUME INTERPRETED IN UNIT OF LOTS - SEE ALSO libat.mqh
-   const double volume = pipsToLots(AT_VOLUME); // FIME: TO DO
+   const double volume = pipsToLots(AT_VOLUME); // FIXME: TO DO
    const string comment=label + " Mechanicaly Opened Order";
    // const double rate = ... // calculated in placeOrder
-   const int order = placeOrder(buy,volume,comment,0); // FIXME: "Magic" number as static program identifier
+   double rate;
+   switch(cmd) {
+      case OP_BUY: 
+         rate = getAskPrice();
+         break;
+      case OP_SELL:
+         rate = getOfferPrice();
+         break;
+      default:
+         rate = -1;
+         break;
+      }
+   const int order = placeOrder(cmd,rate,volume,comment,0); // FIXME: "Magic" number as static program identifier
    if (order > 0) {
       order_main = order;
    } 
    return order;
 }
 
+int calcOrderOpen() {
+   // if BUYSELLL, SPREAD, TRENDX, XOVER ... for all configured time frames ... => openOrder(...)
+   
+   // called from OnTimer()
+   
+   // FIXME: log call at level LOG_CALC
+   
+   const int cmd = calcBuySellX(0); // market bear/bull tick state must correspond across all configured time frames
+   if (cmd == -1) {
+      return -1;
+   } else {
+      const bool spreadx = calcSpreadX(0);
+      if (spreadx) {
+         const bool xoverx = calcXoverX(0,1);
+         if(xoverx) {
+            int order = atOpenOrder(cmd);
+            return order;
+         } else {
+            return -1;
+         }
+      } else {
+         return -1;
+      }
+   }
+
+}
+
 int atCloseOrder() {
    // FIXME: log call at level LOG_ORDER
    if (order_main > 0) {
       // CLOSE ORDER AT CURRENT MARKET PRICE, INITIAL NUMBER OF LOTS, 0 SLIPPAGE
-      return closeOrder(order_main); // FIXME: UNIT TEST FOR ORDER CLOSE PRICE SELECTION
+      const int retv = closeOrder(order_main); // FIXME: UNIT TEST FOR ORDER CLOSE PRICE SELECTION
+      if (retv == 0) {
+         order_main = -1; 
+         return 0;
+      } else {
+         return -127;
+      }
    } else {
       return -1;
    }
 }
 
+int calcOrderClose() {
+   // if  AST_REV_ENAB and calcReversal ... for all configured time frames ... => closeOrder
+   // if  AST_XOV_ENAB and calcXover ... for all configured time frames ... => closeOrder
+   //   
+   // called from OnTimer()
+   //
+   // FIXME: log call at level LOG_CALC
+   
+   // NB: This does not check to ensure whether {order,market} is or is not at a rate providing an ROI
+   if(AST_REV_ENAB && calcReversalX(0,1)) {
+      return atCloseOrder();
+   } else if (AST_XOV_ENAB && calcXoverX(0,1)) {
+      return atCloseOrder();
+   } else {
+      return 0;
+   }
+}
 
 // - Event Handling Functions, MQL
 
@@ -450,14 +558,20 @@ void OnTimer() {
    // NB: This must ensure the graph data is already avaialble - return if OnCalculate not called yet
    int retv;
    retv = atUpdateData();
+   
    if(retv < 0) { 
       atHandleError(); 
       return;
    }
    if(order_main > 0) {
-      retv = calcOrderClose();      
+      retv = calcOrderClose(); // CONDITIONALLY CLOSES ORDER 
    } else {
-      retv = calcOrderOpen();
+      retv = calcOrderOpen(); // CONDITIONALLY CALCULATES ORDER OPEN CMD, -1 IF NO OPEN
+      if(retv < 0) {
+         return; // no cmd - FIXME: and no error ?
+      } else {
+         atOpenOrder(retv);
+      }
    }
    if(retv < 0) { 
       atHandleError(); 
