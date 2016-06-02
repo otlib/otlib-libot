@@ -155,7 +155,6 @@ void logMessage(const ENUM_LOG_LEVEL llevel, const string message) {
 }
 
 int atHandleError() {
-   // FIXME: NAIVE IMPLEMENTATION
    const int code = GetLastError();
    PrintFormat("Error [%d] : %s ",code , ErrorDescription(code));
    //   _StopFlag = true; // NB: CANNOT SET _StopFlag. MQL4 Documentation suggest otherwise ?
@@ -164,6 +163,7 @@ int atHandleError() {
 }
 
 void atValidateInputs() {
+   logMessage(LOG_PROGRAM,__FUNCTION__);
    if( (AT_PERIOD1 == PERIOD_CURRENT) 
         && (AT_PERIOD2 == PERIOD_CURRENT) 
         && (AT_PERIOD3 == PERIOD_CURRENT)) {
@@ -198,6 +198,7 @@ void atInitData() {
    //
    // FIXME: Try out the simple array-as-stack implementation in libea.mqh ?
    // update for each MA data buffer
+   logMessage(LOG_PROGRAM,__FUNCTION__);
    IndicatorDigits(Digits+2);
    ArraySetAsSeries(MA_MDATA,true);
    ArraySetAsSeries(MA_SDATA,true);
@@ -221,6 +222,7 @@ void atDeinitData() {
    
    // FIXME: FREE BUFERS N/A for double[][]
    // assume that the platform will free memory otherwise, after program exit
+   logMessage(LOG_PROGRAM,__FUNCTION__);
    ArrayFree(MA_MDATA);
    ArrayFree(MA_SDATA);
    ArrayFree(MA_TDATA);
@@ -232,6 +234,8 @@ int atUpdateData() {
    // ALSO UPDATE DRAWN BUFFERS FOR CURRENT TIMEFRAME
    
    // return -1 on error
+   
+   logMessage(LOG_PROGRAM,__FUNCTION__);
    
    // FIXME: TIME/TICK SYNC BTW OnTick EVENTS ?
    // NOTE: This does not presently update any values beyond those at index 0
@@ -256,10 +260,12 @@ int atUpdateData() {
 }
 
 void atInitTimer() {
+   logMessage(LOG_PROGRAM,__FUNCTION__);
    EventSetMillisecondTimer(C_TIME);
 }
 
 void atDeinitTimer() {
+   logMessage(LOG_PROGRAM,__FUNCTION__);
    // NB: DOES NOT modify any open orders
    EventKillTimer();
 }
@@ -276,6 +282,7 @@ void updDTZero() {
 // - Order Orchestration
 
 bool calcMSXover(const ENUM_TF_PERIOD tfidx, const int start=0, const int period=1) { 
+   logMessage(LOG_CALC,__FUNCTION__);
    const double mst = MA_MDATA[start][tfidx];
    const double mend = MA_MDATA[start+period][tfidx];
    
@@ -291,6 +298,8 @@ bool calcMSXover(const ENUM_TF_PERIOD tfidx, const int start=0, const int period
 }
 
 bool calcMTXover(const ENUM_TF_PERIOD tfidx, const int start=0, const int period=1) { 
+   logMessage(LOG_CALC,__FUNCTION__);
+
    const double mst = MA_MDATA[start][tfidx];
    const double mend = MA_MDATA[start+period][tfidx];
    
@@ -316,7 +325,7 @@ bool calcXoverX(const int start=0, const int period=1) {
    //
    // EVENT CALC
    
-   // FIXME: log calls at level LOG_CALC
+   logMessage(LOG_CALC,__FUNCTION__);
    if((AT_PERIOD1 != PERIOD_CURRENT) 
        && !(calcMSXover(TF_PERIOD_1,start,period))
        && !(calcMTXover(TF_PERIOD_1,start,period))) {
@@ -337,7 +346,8 @@ bool calcXoverX(const int start=0, const int period=1) {
 }
 
 int calcReversal(const ENUM_TF_PERIOD tfidx, const int start=0, const int duration=1) {
-// FIXME: log call at level LOG_CALC
+   logMessage(LOG_CALC,__FUNCTION__);
+   
    return ocReversal(start,duration,EA_SYMBOL,ptf(tfidx));
 }
 
@@ -346,7 +356,7 @@ int calcReversalX(const int start=0, const int period=1) {
    // e.g bool rev = 
    // EVENT CALC
    
-   // FIXME: log call at level LOG_CALC
+   logMessage(LOG_CALC,__FUNCTION__);
    
    if((AT_PERIOD1 != PERIOD_CURRENT) 
        && !(calcReversal(TF_PERIOD_1,start,period))) {
@@ -365,7 +375,8 @@ int calcReversalX(const int start=0, const int period=1) {
 }
 
 double calcOCDiff(const ENUM_TF_PERIOD tfidx, const int idx=0) {
-   // FIXME: log call at level LOG_CALC
+   logMessage(LOG_CALC,__FUNCTION__);
+   
    const double open = iOpen(EA_SYMBOL, ptf(tfidx), idx);
    const double close = iClose(EA_SYMBOL, ptf(tfidx), idx);
    return MathAbs(open - close);
@@ -373,7 +384,8 @@ double calcOCDiff(const ENUM_TF_PERIOD tfidx, const int idx=0) {
 
 
 bool calcSpread(const ENUM_TF_PERIOD tfidx, const int idx=0) {
-   // FIXME: log call at level LOG_CALC
+   logMessage(LOG_CALC,__FUNCTION__);
+   
    const double spread = getSpread(EA_SYMBOL);
    const double ocdiff = calcOCDiff(tfidx,idx);
    return (spread <= ocdiff);
@@ -384,7 +396,8 @@ bool calcSpreadX(const int idx=0) {
    // getSpread() <= previous OC diff ?
    // CALL FOR any tfidx 0,1,2 for which the corresponding AT_PERIOD1..AT_PERIOD3 != PERIOD_CURRENT ??
    
-   // FIXME: log call at level LOG_CALC
+   logMessage(LOG_CALC,__FUNCTION__);
+   
    if((AT_PERIOD1 != PERIOD_CURRENT) 
        && !(calcSpread(TF_PERIOD_1, idx))) {
        return false;
@@ -405,6 +418,8 @@ bool calcTrend(const bool isSell, const ENUM_TF_PERIOD tfidx, const int idx=0, c
    double trInitial = MA_TDATA[idx + duration][tfidx];
    double trFinal = MA_TDATA[idx][tfidx];
    
+   logMessage(LOG_CALC,__FUNCTION__);
+   
    if (isSell) {
       return (trInitial >= trFinal);
    } else {
@@ -416,7 +431,7 @@ bool calcTrendX(const bool isSell, const int idx=0, const int duration=1) {
    // dispatch on AT_CMD_OP, analyzing MA_TDATA[tfidx][0]
    // CALL FOR any tfidx 0,1,2 for which the corresponding AT_PERIOD1..AT_PERIOD3 != PERIOD_CURRENT ??
    
-   // FIXME: log call at level LOG_CALC
+   logMessage(LOG_CALC,__FUNCTION__);
    if((AT_PERIOD1 != PERIOD_CURRENT) 
        && !(calcTrend(isSell, TF_PERIOD_1, idx, duration))) {
        return false;
@@ -434,12 +449,14 @@ bool calcTrendX(const bool isSell, const int idx=0, const int duration=1) {
 }
 
 int calcBuySell(const ENUM_TF_PERIOD tfidx, const int idx=0) {
+   logMessage(LOG_CALC,__FUNCTION__);
    const int tframe = ptf(tfidx);
    const bool isBear = bearTick(idx,EA_SYMBOL,tframe);
    return isBear ? OP_SELL : OP_BUY;
 }
 
 int calcBuySellX(const int idx=0) {
+   logMessage(LOG_CALC,__FUNCTION__);
    int cmd1 = -1;
    int cmd2 = -1;
    int cmd3 = -1;
@@ -480,7 +497,7 @@ double unitsToLots (const double units) {
 
 int atOpenOrder(const int cmd) {
 
-   // FIXME: log call at level LOG_ORDER
+   logMessage(LOG_ORDER,__FUNCTION__);
 
    // FIXME: VOLUME INTERPRETED IN UNIT OF LOTS - SEE ALSO libat.mqh
    const double volume = unitsToLots(AT_VOLUME); // FIXME: TO DO
@@ -510,7 +527,7 @@ int calcOrderOpen() {
    
    // called from OnTimer()
    
-   // FIXME: log call at level LOG_CALC
+   logMessage(LOG_ORDER,__FUNCTION__);
    
    const int cmd = calcBuySellX(0); // market bear/bull tick state must correspond across all configured time frames
    if (cmd == -1) {
@@ -533,7 +550,7 @@ int calcOrderOpen() {
 }
 
 int atCloseOrder() {
-   // FIXME: log call at level LOG_ORDER
+   logMessage(LOG_ORDER,__FUNCTION__);
    if (order_main > 0) {
       // CLOSE ORDER AT CURRENT MARKET PRICE, INITIAL NUMBER OF LOTS, 0 SLIPPAGE
       const int retv = closeOrder(order_main); // FIXME: UNIT TEST FOR ORDER CLOSE PRICE SELECTION
@@ -554,7 +571,7 @@ int calcOrderClose() {
    //   
    // called from OnTimer()
    //
-   // FIXME: log call at level LOG_CALC
+   logMessage(LOG_ORDER,__FUNCTION__);
    
    // NB: This does not check to ensure whether {order,market} is or is not at a rate providing an ROI
    if(AST_REV_ENAB && calcReversalX(0,1)) {
@@ -569,7 +586,7 @@ int calcOrderClose() {
 // - Event Handling Functions, MQL
 
 void OnInit() {
-   // FIXME: log call at level LOG_PROGRAM
+   logMessage(LOG_PROGRAM,__FUNCTION__);
 
    EA_SYMBOL = ChartSymbol();
 
@@ -583,8 +600,7 @@ void OnInit() {
 }
 
 void OnDeinit(const int reason) {
-
-   // FIXME: log call at level LOG_ORDER
+   logMessage(LOG_PROGRAM, __FUNCTION__ + " " + (string) reason);
 
    // see also: "Uninitialization Reason Codes" MQL4 ref
 
@@ -597,6 +613,7 @@ void OnDeinit(const int reason) {
 
 void OnTimer() {
 // FIXME: log with level LOG_PROGRAM
+   logMessage(LOG_PROGRAM, __FUNCTION__);
 
    // NB: This must ensure the graph data is already avaialble - return if OnCalculate not called yet
    int retv;
