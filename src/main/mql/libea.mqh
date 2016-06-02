@@ -196,7 +196,7 @@ bool bearTick(const int index=0, const string symbol=NULL, const int tframe=0) {
    return (open > close);
 }
 
-bool ocReversal(int start=0,  int period=1, int symbol=NULL, int tframe=0) {
+bool ocReversal(const int start=0, const int period=1, const string symbol=NULL, const ENUM_TIMEFRAMES tframe=PERIOD_CURRENT) {
    // calculate whether market performs a market trend reversal
    // bear=>bull or bull=>bear starting at index START
    // then to end of PERIOD duration in chart ticks
