@@ -130,6 +130,7 @@ input AT_TIME AT_PERIOD1 = PERIOD_M1;   // Primary Period for Event Calculations
 input AT_TIME AT_PERIOD2 = PERIOD_M5;   // Secondary Period for Event Calculations
 input AT_TIME AT_PERIOD3 = PERIOD_M15;  // Tertiary Period for Event Calculations
 input int CALC_DEPTH = 3; // Depth for market history calculation
+input int ORDER_ST_PERIOD = 2; // Minimum period (seconds) between order close, order open
 input ENUM_LOG_OPTIONS AT_LOGLEVEL = OPT_LOG_DRAW; // Log Level
 
 // FIXME: ENSURE DATA REINITIALIZED AFTER CHANGE IN AT_PERIOD1, AT_PERIOD2, AT_PERIOD3
@@ -148,8 +149,10 @@ const string label = "AT01";
 // if (order_main > 0), records the ticket number for the main order 
 // else indicates that no main order is open
 int order_main = -1;
+datetime order_main_last; // datetime of last event onto order_main
 int calc_period;
 string EA_SYMBOL;
+int AT_ONCE = false; // applied when AT_ALWAYS
 
 /* // unused - metadata value
 datetime dtzero_p1;
@@ -191,7 +194,8 @@ void atValidateInputs() {
       ExpertRemove();
    }
    if(calc_period > BUFFLEN) {
-      PrintFormat("Warning - calc_period %d greater than BUFFLEN %d. Consider adjusting EA period, depth parameters", calc_period, BUFFLEN);
+      PrintFormat("Error - calc_period %d greater than BUFFLEN %d. Consider adjusting EA period, depth parameters", calc_period, BUFFLEN);
+      ExpertRemove();
    }
 }
 
@@ -392,6 +396,7 @@ bool calcXoverX(const int start=0, const int period=1) {
 int calcReversal(const ENUM_TF_PERIOD tfidx, const int start=0, const int duration=1) {
    // logMessage(LOG_CALC,__FUNCTION__);
    
+   // FIXME: Define ocReversalHA and apply here - use HA derived open/close, bear/bull data 
    return ocReversal(start,duration,EA_SYMBOL,ptf(tfidx));
 }
 
@@ -547,6 +552,11 @@ int calcBuySellX(const int idx=0) {
     }
 }
 
+bool calcTimeOk() {
+   const datetime dt_off = (int) order_main_last + ORDER_ST_PERIOD;
+   const datetime dt_now = TimeCurrent();
+   return (dt_now > dt_off);
+}
 
 int atOpenOrder(const int cmd) {
 
@@ -570,6 +580,7 @@ int atOpenOrder(const int cmd) {
    const int order = placeOrder(cmd,rate,AT_VOLUME,comment,0); // FIXME: "Magic" number as static program identifier
    if (order > 0) {
       order_main = order;
+      order_main_last = TimeCurrent();
    } 
    return order;
 }
@@ -581,24 +592,27 @@ int calcOrderOpen() {
    
    // logMessage(LOG_ORDER,__FUNCTION__);
    
-   const int cmd = calcBuySellX(0); // market bear/bull tick state must correspond across all configured time frames
-   if (cmd == -1) {
-      return -1;
-   } else {
-      const bool spreadx = calcSpreadX(0);
-      if (spreadx) {
-         const bool xoverx = calcXoverX(0,CALC_DEPTH);
-         if(xoverx) {
-            int order = atOpenOrder(cmd);
-            return order;
-         } else {
-            return -1;
-         }
+   if(calcTimeOk()) {
+      const int cmd = calcBuySellX(0); // market bear/bull tick state must correspond across all configured time frames
+      if (cmd == -1) {
+         return -1; // not cmd
       } else {
-         return -1;
-      }
+         const bool spreadx = calcSpreadX(0);
+         if (spreadx) {
+            const bool xoverx = calcXoverX(0,CALC_DEPTH);
+            if(xoverx) {
+               int order = atOpenOrder(cmd);
+               return order;
+            } else {
+               return -1; // not xoverx
+            }
+         } else {
+            return -1; // not spreadx
+         } 
+      } // cmd ok
+   } else {
+      return -1; // not calcTimeOk()
    }
-
 }
 
 int atCloseOrder() {
@@ -607,7 +621,8 @@ int atCloseOrder() {
       // CLOSE ORDER AT CURRENT MARKET PRICE, INITIAL NUMBER OF LOTS, 0 SLIPPAGE
       const int retv = closeOrder(order_main); // FIXME: UNIT TEST FOR ORDER CLOSE PRICE SELECTION
       if (retv == 0) {
-         order_main = -1; 
+         order_main = -1;
+         order_main_last = TimeCurrent();
          return 0;
       } else {
          return -127;
@@ -683,9 +698,10 @@ void OnTimer() {
    // Not being called : calcOrderOpen ?
    if(order_main > 0) {
       retv = calcOrderClose(); // CONDITIONALLY CLOSES ORDER 
-   } else if (AT_ALWAYS) {
+   } else if (AT_ALWAYS && !AT_ONCE) {
       const int cmd = calcBuySell();
-      atOpenOrder(cmd);
+      retv = atOpenOrder(cmd);
+      AT_ONCE = true;
    } else {
       retv = calcOrderOpen(); // CONDITIONALLY CALCULATES ORDER OPEN CMD, -1 IF NO OPEN
       if(retv < 0) {
