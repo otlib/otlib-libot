@@ -33,9 +33,9 @@
 #property description "AT01 - Mechanical Trading Prototype. OTLIB"
 #property version   "1.00"
 #property strict
-#property script_show_inputs
-#property indicator_chart_window
-#property indicator_buffers 3 // number of drawn buffers ?
+// #property script_show_inputs
+// #property indicator_chart_window
+// #property indicator_buffers 3 // number of drawn buffers ?
 
 /* NO DRAWING IN EA ?
 #property indicator_color1 clrYellow
@@ -63,6 +63,8 @@
 // FIXME: Define a combined three-MA graphical indicator and call iCustom 
 // from this program to launch the same indicator, such as to provide
 // a visual indication accurate to the internal chart data of this EA.
+
+// FIXME: THE WHOLE THING IS UPDATED TO NO WAY DOCUMENTED, WHEN CHART TIMEFRAME IS CHANGED
 
 // - EA Custom Data Types
 
@@ -137,9 +139,11 @@ datetime dtzero_p2;
 datetime dtzero_p3;
 */
 
-double MA_MDATA[][TF_PERIOD_3]; // main chart data - time frames 0, 1, 2
-double MA_SDATA[][TF_PERIOD_3]; // signal chart data - time frames 0, 1, 2
-double MA_TDATA[][TF_PERIOD_3]; // trend chart data - time frames 0, 1, 2
+const int BUFFLEN = 512;
+double MA_MDATA[512][3]; // main chart data - time frames 0, 1, 2
+double MA_SDATA[512][3]; // signal chart data - time frames 0, 1, 2
+double MA_TDATA[512][3]; // trend chart data - time frames 0, 1, 2
+
 
 
 // - Utility
@@ -166,6 +170,7 @@ void atValidateInputs() {
       Print("Invalid Inputs - AT01 periods 1, 2, 3 are set to PERIOD_CURRENT");
       ExpertRemove();
    }
+   // FIXME: Validate BUFFLEN >= AT_<M|S|O|T>_PERIOD
 }
 
 int ptf(const ENUM_TF_PERIOD tfidx) {
@@ -189,23 +194,36 @@ void atInitData() {
      
    // NB: SetIndexBuffer() not applicable for double[][]
 
-   // FIXME: SetIndexBuffer N/A in EA type programs
-   // initDrawBuffer(MA_MDATA0,0,bufflen);
-   // .. NA.
-
-   // FIXME: Try out the simple array-as-stack implementation in libea.mqh ?
-   // update for
+   // NB: SetIndexBuffer N/A in EA type programs
    //
-   // double MA_MDATA[0..N][0..2]; // main chart data - time frames 0, 1, 2
-   // double MA_SDATA[0..N][0..2]; // signal chart data - time frames 0, 1, 2
-   // double MA_TDATA[0..N][0..2]; // trend chart data - time frames 0, 1, 2
-
+   // FIXME: Try out the simple array-as-stack implementation in libea.mqh ?
+   // update for each MA data buffer
+   IndicatorDigits(Digits+2);
+   ArraySetAsSeries(MA_MDATA,true);
+   ArraySetAsSeries(MA_SDATA,true);
+   ArraySetAsSeries(MA_TDATA,true);
+   ArrayFill(MA_MDATA,0,BUFFLEN,dblz);
+   ArrayFill(MA_SDATA,0,BUFFLEN,dblz);
+   ArrayFill(MA_TDATA,0,BUFFLEN,dblz);
+   
+   /*
+   const int ptf1 = AT_PERIOD1;
+   const int ptf2 = AT_PERIOD2;
+   const int ptf3 = AT_PERIOD3;
+   */
+   
+   // populate MA_MDATA, MA_SDATA, MA_TDATA up to BUFFLEN
+   atUpdateData(); // update only at n = 0 - may be all it needs in the program itself   
 }
 
 void atDeinitData() {
    // free data of main, signal, and trend chart lines
    
-   // FIXME: FREE BUFERS
+   // FIXME: FREE BUFERS N/A for double[][]
+   // assume that the platform will free memory otherwise, after program exit
+   ArrayFree(MA_MDATA);
+   ArrayFree(MA_SDATA);
+   ArrayFree(MA_TDATA);
 }
 
 int atUpdateData() {
@@ -214,6 +232,27 @@ int atUpdateData() {
    // ALSO UPDATE DRAWN BUFFERS FOR CURRENT TIMEFRAME
    
    // return -1 on error
+   
+   // FIXME: TIME/TICK SYNC BTW OnTick EVENTS ?
+   // NOTE: This does not presently update any values beyond those at index 0
+   const int ptf1 = AT_PERIOD1;
+   const int ptf2 = AT_PERIOD2;
+   const int ptf3 = AT_PERIOD3;
+   for(int n = 0; n < 2; n++) { // 2 because 2 points in analysis
+      // FIXME: This program-historic data buffering not very well needed in a non-visualized EA
+      MA_MDATA[n][0] = iMA(EA_SYMBOL,ptf1,AT_M_PERIOD,0,AT_MA_METHOD,AT_P_METHOD,n);
+      MA_MDATA[n][1] = iMA(EA_SYMBOL,ptf2,AT_M_PERIOD,0,AT_MA_METHOD,AT_P_METHOD,n);
+      MA_MDATA[n][2] = iMA(EA_SYMBOL,ptf3,AT_M_PERIOD,0,AT_MA_METHOD,AT_P_METHOD,n);
+      
+      MA_SDATA[n][0] = iMA(EA_SYMBOL,ptf1,AT_S_PERIOD,AT_O_PERIOD,AT_MA_METHOD,AT_P_METHOD,n);
+      MA_SDATA[n][1] = iMA(EA_SYMBOL,ptf2,AT_S_PERIOD,AT_O_PERIOD,AT_MA_METHOD,AT_P_METHOD,n);
+      MA_SDATA[n][2] = iMA(EA_SYMBOL,ptf3,AT_S_PERIOD,AT_O_PERIOD,AT_MA_METHOD,AT_P_METHOD,n);
+      
+      MA_TDATA[n][0] = iMA(EA_SYMBOL,ptf1,AT_T_PERIOD,0,AT_MA_METHOD,AT_P_METHOD,n);
+      MA_TDATA[n][1] = iMA(EA_SYMBOL,ptf2,AT_T_PERIOD,0,AT_MA_METHOD,AT_P_METHOD,n);
+      MA_TDATA[n][2] = iMA(EA_SYMBOL,ptf3,AT_T_PERIOD,0,AT_MA_METHOD,AT_P_METHOD,n);
+   }
+   return 2;
 }
 
 void atInitTimer() {
@@ -434,12 +473,17 @@ int calcBuySellX(const int idx=0) {
     }
 }
 
+double unitsToLots (const double units) {
+   const double priceper = SymbolInfoDouble(EA_SYMBOL,SYMBOL_POINT);
+   return units / priceper; // ?
+}
+
 int atOpenOrder(const int cmd) {
 
    // FIXME: log call at level LOG_ORDER
 
    // FIXME: VOLUME INTERPRETED IN UNIT OF LOTS - SEE ALSO libat.mqh
-   const double volume = pipsToLots(AT_VOLUME); // FIXME: TO DO
+   const double volume = unitsToLots(AT_VOLUME); // FIXME: TO DO
    const string comment=label + " Mechanicaly Opened Order";
    // const double rate = ... // calculated in placeOrder
    double rate;
@@ -530,10 +574,9 @@ void OnInit() {
    EA_SYMBOL = ChartSymbol();
 
    atValidateInputs();
-   // Init Visual Properties
-   IndicatorShortName(label);
-   // Init Data
-   IndicatorDigits(Digits+2);
+   // - Init Visual Properties (NA for this EA?)
+   IndicatorShortName(StringFormat("%s(%s)", label, EA_SYMBOL));
+   // - Init Data
    atInitData();
    // Init Timer
    atInitTimer();
