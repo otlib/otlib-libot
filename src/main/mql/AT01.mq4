@@ -521,8 +521,8 @@ bool bearTickHA(const int tfidx=0, const int index=0, const int depth=0) {
    
    // so NB: This EA must calculate HA ticks onto all configured timeframes.
    
-   const double open = openRate(index+depth,tfidx);
-   const double close = closeRate(index,tfidx);
+   const double open = openRate(tfidx, index+depth);
+   const double close = closeRate(tfidx, index);
    return (open > close);
 }
 
@@ -578,8 +578,8 @@ double calcOCDiff(const int tfidx=0, const int idx=0, const int depth=0) {
 
    // FIXME: VERIFY CONSISTENCY OF HA INDICATOR DATA
    
-   const double open = sbuff.getData(idx+depth,DATA_HA_OPEN,tfidx);
-   const double close = sbuff.getData(idx,DATA_HA_CLOSE,tfidx);
+   const double open = openRate(tfidx, idx+depth);
+   const double close = closeRate(tfidx, idx);
    return MathAbs(open - close);
 }
 
