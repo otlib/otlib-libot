@@ -184,20 +184,6 @@ input ENUM_LOG_OPTIONS AT_LOGLEVEL = OPT_LOG_DRAW; // Log Level
 // NB: If both AST_REV_ENAB and AST_XOV_ENAB = false, orders will not be mechanically closed with this program
 
 
-// - EA Program Parameters
-
-const string label = "AT01";
-// - order_main 
-
-// if (order_main > 0), records the ticket number for the main order 
-// else indicates that no main order is open
-
-int order_main = -1; // Record of one active order, or none if -1
-datetime order_main_last; // datetime of last event onto order_main - FIXME: REMOVE
-
-int calc_period;
-string EA_SYMBOL;
-int AT_ONCE = false; // applied when AT_ALWAYS
 
 // - configure and activate the SimpleStackBuffer implementation
 #ifndef BUFFLEN
@@ -216,6 +202,12 @@ int AT_ONCE = false; // applied when AT_ALWAYS
 #define BUFF_T double
 #endif
 
+
+// NB UNDOCUMENTED FEATURE? - DATETIME CLOK OPERATING AT A SCALE OF MILLISECONDS (AFTER EventSetMillisecondTimer) ??
+#ifndef TFRAME_SCALE
+#define TFRAME_SCALE 60 // datetime timer functioning in unit of seconds?
+#endif
+
 #include "libbuffer.mqh"
 #include "libha.mqh"
 
@@ -224,6 +216,24 @@ SimpleStackBuffer* sbuff=NULL;
 // buffer for converting from timeframe index to timeframe period
 // utilized in calculations applying SimpleStackBuffer
 int timeframes[3]; 
+datetime chart_last[N_TFRAME]; // Applied onto sbuff for sbuff chart data push function
+
+// - EA Program Parameters
+
+const string label = "AT01";
+// - order_main 
+
+// if (order_main > 0), records the ticket number for the main order 
+// else indicates that no main order is open
+
+int order_main = -1; // Record of one active order, or none if -1
+datetime order_main_last; // datetime of last event onto order_main - FIXME: REMOVE
+datetime ontick_last = 0; // Applied in a finite state machine for slowing OnTick updates
+
+
+int calc_period;
+string EA_SYMBOL;
+int AT_ONCE = false; // applied when AT_ALWAYS
 
 // - individual data buffers applied before implementing SimpleStackBuffer
 // double MA_MDATA[BUFFLEN][3]; // main chart data - time frames 0, 1, 2
@@ -264,21 +274,6 @@ void atValidateInputs() {
    }
 }
 
-int ptf(const ENUM_TF_PERIOD tfidx) {
-   // return timeframe for chart-local period record
-   //
-   // implicitly coerces return value to int type
-   switch(tfidx) {
-      case TF_PERIOD_1:
-         return AT_PERIOD1;
-      case TF_PERIOD_2:
-         return AT_PERIOD2;
-      case TF_PERIOD_3:
-         return AT_PERIOD3;
-      default:
-         return -1;
-   }
-}
 
 void atInitData(const int depth) {
    // called again after EA change
@@ -293,26 +288,16 @@ void atInitData(const int depth) {
    // update for each MA data buffer
    logMessage(LOG_PROGRAM,__FUNCTION__);
    IndicatorDigits(Digits+2);
-   // ArraySetAsSeries(MA_MDATA,true);
-   // ArraySetAsSeries(MA_SDATA,true);
-   // ArraySetAsSeries(MA_TDATA,true);
-   // ArrayFill(MA_MDATA,0,BUFFLEN,dblz);
-   // ArrayFill(MA_SDATA,0,BUFFLEN,dblz);
-   // ArrayFill(MA_TDATA,0,BUFFLEN,dblz);
-   
-   const int ptf1 = AT_PERIOD1;
-   const int ptf2 = AT_PERIOD2;
-   const int ptf3 = AT_PERIOD3;
-  
 
    if(sbuff == NULL) {
-      sbuff = new SimpleStackBuffer(true);
+      sbuff = new SimpleStackBuffer(false); 
+      // SSBuf init with asTSeries false => use conventional reverse-time-series order, similar to iOpen and others
    }
    
    // - initialize timeframes[0..2]
-   timeframes[0] = AT_PERIOD1;// ptf(TF_PERIOD_1);
-   timeframes[1] = AT_PERIOD2; // ptf(TF_PERIOD_2);
-   timeframes[2] = AT_PERIOD3; // ptf(TF_PERIOD_3);
+   timeframes[0] = AT_PERIOD1;
+   timeframes[1] = AT_PERIOD2;
+   timeframes[2] = AT_PERIOD3;
 
    // haInitBuffers(calc_period); // unused when STACKBUFF
    // FIXME - Open, High, Low, Close no longer used when STACKBUFF
@@ -320,31 +305,18 @@ void atInitData(const int depth) {
    ArraySetAsSeries(High,true); // disambiguate High element order
    ArraySetAsSeries(Low,true); // disambiguate Low element order
    ArraySetAsSeries(Close,true); // disambiguate Close element order
-   
-   // for(int tf = 0; tf < N_TFRAME; tf++) {
-   //   calcHA(calc_period,0,EA_SYMBOL,tf); // FIXME also called in atUpdateData
-   // }
-   
-   // populate MA_MDATA, MA_SDATA, MA_TDATA up to BUFFLEN
-   atUpdateData(depth); // update only at n = 0 - may be all it needs in the program itself   
+      
+   // populate MA_MDATA, MA_SDATA, MA_TDATA up to BUFFLEN - also populate HA data
+   atUpdateData(depth);
 }
+
 
 void atDeinitData() {
    // free data of main, signal, and trend chart lines
-   
-   // FIXME: FREE BUFERS N/A for double[][]
-   // assume that the platform will free memory otherwise, after program exit
    logMessage(LOG_PROGRAM,__FUNCTION__);
-   
    delete sbuff;
-   // NB: This function was originally called from OnDeinit() in all instances.
-   // OnDeinit() may be called after an EA is updated, or after the active
-   // char window's timeframe is changed - evets at which it would not be
-   // advisable to ArrayFree these values.
-   //  ArrayFree(MA_MDATA);
-   //  ArrayFree(MA_SDATA);
-   //  ArrayFree(MA_TDATA);
 }
+
 
 int atUpdateData(const int period) {
    // UPDATE ALL TIMEFRAME 0..3 BUFFERS
@@ -362,43 +334,71 @@ int atUpdateData(const int period) {
    const int ptf3 = AT_PERIOD3;
    
    double datum;
-   int tframe;
+   int idx, tframe;
+
+   datetime last, next, ctime;
+   bool pushed = false;
    
    // NB: Called from atInitData(), OnTick(), OnTimer()
    
    for(int n = 0; n < period; n++) {
       // assume at least one tframe != AT_TIME_NONE
-      if (n > 0) { sbuff.pushData(); } // FIXME: OPTIMIZE
       for(int tf = 0; tf < N_TFRAME; tf++) {
          tframe=timeframes[tf];
          if (tframe != AT_TIME_NONE) {
+            idx = n;
+            
+            // - time/chart synch maintenance
+            last = chart_last[tf];
+            next = last + (tframe * TFRAME_SCALE); // tframe is measued in units of minutes
+            ctime = iTime(EA_SYMBOL,tframe,n);
+            if (next < ctime) {
+               // Do not exit iteration - Ensure last index is updated - FIXME despite previous sbuff.pushData()
+               if(n > 0) {
+                  idx = n-1;   
+               } // else idx = 0
+            }  else {
+               // last >= ctime
+               if (!pushed) {
+                  sbuff.pushData();
+                  pushed = true;
+                  logMessage(LOG_PROGRAM, __FUNCTION__ + " push stack");
+               }
+            }
+            chart_last[tf] = ctime;
+            
+            // - calculations
+
             // logMessage(LOG_PROGRAM, StringFormat(__FUNCTION__ + " - tframe %d: %d - index %d", tf, tframe, n ));
             // cache DATA_MDATA - moving average onto M data graph
-            datum = iMA(EA_SYMBOL,tframe,AT_M_PERIOD,0,AT_MA_METHOD,AT_P_METHOD,n);
-            sbuff.setData(datum,n,DATA_MDATA,tf);
+            datum = iMA(EA_SYMBOL,tframe,AT_M_PERIOD,0,AT_MA_METHOD,AT_P_METHOD,idx);
+            sbuff.setData(datum,idx,DATA_MDATA,tf);
             
             // cache DATA_SDATA - - moving average onto S data graph
-            datum = iMA(EA_SYMBOL,tframe,AT_S_PERIOD,AT_O_PERIOD,AT_MA_METHOD,AT_P_METHOD,n);
-            sbuff.setData(datum,n,DATA_SDATA,tf);
+            datum = iMA(EA_SYMBOL,tframe,AT_S_PERIOD,AT_O_PERIOD,AT_MA_METHOD,AT_P_METHOD,idx);
+            sbuff.setData(datum,idx,DATA_SDATA,tf);
             
             // cache DATA_TDATA - - moving average onto T data graph
-            datum = iMA(EA_SYMBOL,tframe,AT_T_PERIOD,0,AT_MA_METHOD,AT_P_METHOD,n);
-            sbuff.setData(datum,n,DATA_TDATA,tf);
+            datum = iMA(EA_SYMBOL,tframe,AT_T_PERIOD,0,AT_MA_METHOD,AT_P_METHOD,idx);
+            sbuff.setData(datum,idx,DATA_TDATA,tf);
 
             // cache Heikin Ashi indicator data - FIXME for duration ... !
             // FIXME : redundant tf, tframe in function call to calcHA
-            calcHA(sbuff,tf,period,n,EA_SYMBOL,tframe); // FIXME: period, n - OPTIMIZE CALC; tf, timeframes[tf] - OPTIMIZE CALL
-         };
-      }; 
-   };
+            calcHA(sbuff,tf,period,idx,EA_SYMBOL,tframe); // FIXME: period, n - OPTIMIZE CALC; tf, timeframes[tf] - OPTIMIZE CALL
+
+         }; // tframe != AT_TIME_NONE
+      }; // tf iterator
+   }; // idx iteraror n
    // logMessage(LOG_PROGRAM,__FUNCTION__ + " END");
    return 2;
 }
 
+
 void atInitTimer() {
-   logMessage(LOG_PROGRAM,__FUNCTION__);
+   logMessage(LOG_PROGRAM,__FUNCTION__ + " - minutes calc scale " + (string) TFRAME_SCALE);
    EventSetMillisecondTimer(C_TIME);
 }
+
 
 void atDeinitTimer() {
    logMessage(LOG_PROGRAM,__FUNCTION__);
@@ -406,15 +406,30 @@ void atDeinitTimer() {
    EventKillTimer();
 }
 
+
+// - Utility - HA buffer impl w/ SimpleStackBuffer
+
+
+double openRate(const int tfidx, const int idx=0) {
+   return sbuff.getData(idx, DATA_HA_OPEN, tfidx);   
+}
+
+
+double closeRate(const int tfidx, const int idx=0) {
+   return sbuff.getData(idx, DATA_HA_CLOSE, tfidx);
+}
+
+
+
 // - Order Orchestration
 
-bool calcMSXover(const int tfidx=0, const int start=0, const int period=1) { 
+bool calcMSXover(const int tfidx=0, const int start=0, const int depth=1) { 
    // logMessage(LOG_CALC,__FUNCTION__);
    const double mst = sbuff.getData(start,DATA_MDATA,tfidx); // MA_MDATA[start][tfidx];
-   const double mend = sbuff.getData(start+period,DATA_MDATA,tfidx); // MA_MDATA[start+period][tfidx];
+   const double mend = sbuff.getData(start+depth,DATA_MDATA,tfidx); // MA_MDATA[start+period][tfidx];
    
    const double sst = sbuff.getData(start,DATA_SDATA,tfidx); // MA_SDATA[start][tfidx];
-   const double send = sbuff.getData(start+period,DATA_SDATA,tfidx); // MA_SDATA[start+period][tfidx];
+   const double send = sbuff.getData(start+depth,DATA_SDATA,tfidx); // MA_SDATA[start+period][tfidx];
    
    const double dst = mst - sst;
    const double dend = mend - send;
@@ -424,7 +439,8 @@ bool calcMSXover(const int tfidx=0, const int start=0, const int period=1) {
    return ((dst <= dblz && dend > dblz) || (dst > dblz && dend <= dblz));
 }
 
-bool calcMTXover(const int tfidx=0, const int start=0, const int period=1) { 
+
+bool calcMTXover(const int tfidx=0, const int start=0, const int depth=1) { 
    // logMessage(LOG_CALC,__FUNCTION__);
 
    /* e.g
@@ -440,10 +456,10 @@ bool calcMTXover(const int tfidx=0, const int start=0, const int period=1) {
    */
 
    const double mst = sbuff.getData(start,DATA_MDATA,tfidx); // MA_MDATA[start][tfidx];
-   const double mend = sbuff.getData(start+period,DATA_MDATA,tfidx); // MA_MDATA[start+period][tfidx];
+   const double mend = sbuff.getData(start+depth,DATA_MDATA,tfidx); // MA_MDATA[start+period][tfidx];
    
    const double tst = sbuff.getData(start,DATA_TDATA,tfidx); // MA_TDATA[start][tfidx];
-   const double tend = sbuff.getData(start+period,DATA_TDATA,tfidx); // MA_TDATA[start+period][tfidx];
+   const double tend = sbuff.getData(start+depth,DATA_TDATA,tfidx); // MA_TDATA[start+period][tfidx];
       
    const double dst = mst - tst; // difference at start
    const double dend = mend - tend; // diference at end
@@ -454,7 +470,8 @@ bool calcMTXover(const int tfidx=0, const int start=0, const int period=1) {
    return ((dst <= dblz && dend > dblz) || (dst > dblz && dend <= dblz));
 }
 
-bool calcXoverX(const int start=0, const int period=1) {
+
+bool calcXoverX(const int start=0, const int depth=1) {
    // DATA
    // {main,signal} xover
    // and {main,trend} xover
@@ -465,22 +482,20 @@ bool calcXoverX(const int start=0, const int period=1) {
    // EVENT CALC
    
    // logMessage(LOG_CALC,__FUNCTION__);
-   // - logic applied with SimpleStackBuffer - iterate across timeframes
-   for(int n = start; n < period; n++) {
-      for(int tf = 0; tf < N_TFRAME; tf++) {
-         int tframe = timeframes[tf];
-         if ((tframe != AT_TIME_NONE)
-               && !(calcMSXover(tf,start,period))
-               && !(calcMTXover(tf,start,period))) {
-           return false;
-         };
+   // -iterate across timeframes
+   for(int tf = 0; tf < N_TFRAME; tf++) {
+      int tframe = timeframes[tf];
+      if ((tframe != AT_TIME_NONE)
+            && !(calcMSXover(tf,start,depth))
+            && !(calcMTXover(tf,start,depth))) {
+        return false;
       };
    };
    return true;
 }
 
 
-bool bearTickHA(const int tfidx=0, const int index=0) {
+bool bearTickHA(const int tfidx=0, const int index=0, const int depth=0) {
    // NB This function DOES NOT check for time-series array order
    
    // FIXME: update default HA to use data bufers double[N][4] -- HA_OPEN HA_HIGH HA_LOW HA_CLOSE enum indexes onto dimension [4]
@@ -506,12 +521,13 @@ bool bearTickHA(const int tfidx=0, const int index=0) {
    
    // so NB: This EA must calculate HA ticks onto all configured timeframes.
    
-   const double open = sbuff.getData(index,DATA_HA_OPEN,tfidx); // getTickHAOpen(tfidx, index);
-   const double close = sbuff.getData(index,DATA_HA_CLOSE,tfidx); // getTickHAClose(tfidx, index);
+   const double open = openRate(index+depth,tfidx);
+   const double close = closeRate(index,tfidx);
    return (open > close);
 }
 
-bool ocReversalHA(const int tfidx=0, const int start=0, const int period=1) {
+
+bool ocReversalHA(const int tfidx=0, const int start=0, const int depth=1) {
    // calculate whether market performs a market trend reversal
    // bear=>bull or bull=>bear starting at index START
    // then to end of PERIOD duration in chart ticks
@@ -519,25 +535,7 @@ bool ocReversalHA(const int tfidx=0, const int start=0, const int period=1) {
    // this calculation is performed onto chart tick {open, close} data 
    // at the indicated timeframe, onto the data record for the specified symbol
    // (current chart symbol if NULL)
-   if(period <= 0) {
-      PrintFormat("Program Warning - calcReversal with period %d", period); // DEBUG_WARN
-      return false;
-   } else {
-      int tframe = timeframes[tfidx];
-      bool btStart = bearTickHA(tfidx, start);
-      bool btEnd = bearTickHA(tfidx, start + period);
-      return (btStart != btEnd);
-   }
-}
-
-
-/* // unused
-int calcReversal(const ENUM_TF_PERIOD tfidx, const int start=0, const int duration=1) {
-   // logMessage(LOG_CALC,__FUNCTION__);
    
-   // FIXME: Define ocReversalHA and apply here - use HA derived open/close, bear/bull data 
-   // return ocReversal(start,duration,EA_SYMBOL,ptf(tfidx));
-   return ocReversal(start,duration);
    
    // MAINT NOTE: calcReveral when applied onto conventional candlestick chart data was frequently returning
    // spurious values, as calculated with regards to whether a chart candlestick represented a 'bull' or 'bear' tick,
@@ -546,8 +544,17 @@ int calcReversal(const ENUM_TF_PERIOD tfidx, const int start=0, const int durati
    // The HA indicator, alternately, applies a logical methodology for computation of candlestick open, high, low, and close
    // data in manner uilizing immediate market data for high,low values but using a sequential chart analsis for calculating
    // tick open, close values. The HA indicator may be more typically representative of market trends.
+   
+   if(depth <= 0) {
+      PrintFormat("Program Warning - calcReversal with depth %d", depth); // DEBUG_WARN
+      return false;
+   } else {
+      int tframe = timeframes[tfidx];
+      bool btStart = bearTickHA(tfidx, start, depth); // ?
+      bool btEnd = bearTickHA(tfidx, start + depth, depth); // ?
+      return (btStart != btEnd);
+   }
 }
-*/
 
 int calcReversalX(const int start=0, const int period=1) {
    // calculate whether the market rate has developed to a bear/bull reversal
@@ -561,52 +568,47 @@ int calcReversalX(const int start=0, const int period=1) {
                return false;
       };
    }; 
+   logMessage(LOG_CALC,__FUNCTION__ + " true");
    return true;
-
 }
 
-double calcOCDiff(const int tfidx=0, const int idx=0) {
+
+double calcOCDiff(const int tfidx=0, const int idx=0, const int depth=0) {
    // logMessage(LOG_CALC,__FUNCTION__);
+
+   // FIXME: VERIFY CONSISTENCY OF HA INDICATOR DATA
    
-   const double open = sbuff.getData(idx,DATA_HA_OPEN,tfidx);
+   const double open = sbuff.getData(idx+depth,DATA_HA_OPEN,tfidx);
    const double close = sbuff.getData(idx,DATA_HA_CLOSE,tfidx);
    return MathAbs(open - close);
-
-   /* pre-HA data logic - applying market open, market close - often to a spurious effect with regards to bear/bull market progress
-   const double open = iOpen(EA_SYMBOL, ptf(tfidx), idx); // FIXME : update for HA data ?
-   const double close = iClose(EA_SYMBOL, ptf(tfidx), idx); // FIXME : update for HA data ?
-   return MathAbs(open - close);
-   */
 }
 
 
-/* folded now into calcSpreadX
-bool calcSpread(const ENUM_TF_PERIOD tfidx, const int idx=0) {
-   // logMessage(LOG_CALC,__FUNCTION__);
-   
-   const double spread = getSpread(EA_SYMBOL);
-   const double ocdiff = calcOCDiff(tfidx,idx);
-   return (spread <= ocdiff);
-}
-*/
-
-bool calcSpreadX(const int idx=0) {
+bool calcSpreadX(const int idx=0, const int depth=0) {
    // calculate whether getSpread() <= current diff of market open and close rates (HA)
+   // rationale: limit risk before event of open order
+
    // logMessage(LOG_CALC,__FUNCTION__);
    const double spread = getSpread(EA_SYMBOL); // xglobal EA_SYMBOL scope
    for(int tf = 0; tf < N_TFRAME; tf++) {
       int tframe = timeframes[tf];
+      const double diff = calcOCDiff(tf, idx, depth);
       if ((tframe != AT_TIME_NONE) &&
-            !(spread <= calcOCDiff(tf,idx))) {
+            !(spread <= diff)) {
+            // NB: Spread data is not updated to a very fine resolution of time
+            logMessage(LOG_CALC,__FUNCTION__ + StringFormat(" false - ! spread %f < diff %f - tframe %d", spread, diff, tframe));
          return false;            
       };
    };
    return true;
+   logMessage(LOG_CALC,__FUNCTION__ + " true");
 }
 
-bool calcTrend(const bool isSell, const int tfidx, const int idx=0, const int duration=1) {
+
+bool calcTrend(const bool isSell, const int tfidx, const int idx=0, const int depth=1) {
+   // calculate whether the market trend graph - at depth `depth` to index idx for timeframe (tfidx) - is favorable to a buy or sell order
    // logMessage(LOG_CALC,__FUNCTION__);
-   double trInitial = sbuff.getData((idx + duration),DATA_TDATA,tfidx);  // was: MA_TDATA[idx + duration][tfidx];
+   double trInitial = sbuff.getData((idx + depth),DATA_TDATA,tfidx);  // was: MA_TDATA[idx + duration][tfidx];
    double trFinal = sbuff.getData(idx,DATA_TDATA,tfidx);  // was: MA_TDATA[idx][tfidx];
    if (isSell) {
       return (trInitial >= trFinal);
@@ -615,25 +617,29 @@ bool calcTrend(const bool isSell, const int tfidx, const int idx=0, const int du
    }
 }
 
-bool calcTrendX(const bool isSell, const int idx=0, const int duration=1) {
+
+bool calcTrendX(const bool isSell, const int idx=0, const int depth=1) {
    // dispatch on AT_CMD_OP, analyzing MA_TDATA[tfidx][0]
    // CALL FOR any tfidx 0,1,2 for which the corresponding AT_PERIOD1..AT_PERIOD3 != AT_TIME_NONE ??
    for(int tf = 0; tf < N_TFRAME; tf++) {
       int tframe = timeframes[tf];
       if ((tframe != AT_TIME_NONE)
-            && !(calcTrend(isSell, tf, idx, duration))) {
+            && !(calcTrend(isSell, tf, idx, depth))) {
          return false;     
       };
    };
    return true;
 }
 
-int calcBuySell(const int tfidx, const int idx=0) {
+
+int calcBuySell(const int tfidx, const int idx=0, const int depth=0) {
    // logMessage(LOG_CALC,__FUNCTION__);
    // const int tframe = timerames[tfidx]; // ptf(tfidx);
-   const bool isBear = bearTickHA(tfidx,idx);
+   // const bool isBear = bearTickHA(tfidx,idx);
+   const bool isBear = (openRate(tfidx, idx+depth) > closeRate(tfidx, idx));
    return isBear ? OP_SELL : OP_BUY;
 }
+
 
 bool calcCmdSame(const int cmd1, const int cmd2) {
    if ((cmd1 != -1) && (cmd2 != -1) && (cmd1 != cmd2)) {
@@ -643,19 +649,20 @@ bool calcCmdSame(const int cmd1, const int cmd2) {
    }
 }
 
-int calcBuySellX(const int idx=0) {
+
+int calcBuySellX(const int idx=0, const int depth=0) {
    // logMessage(LOG_CALC,__FUNCTION__);
    int cmd1 = -1;
    int cmd2 = -1;
    int cmd3 = -1;
     if(AT_PERIOD1 != AT_TIME_NONE) {
-       cmd1 = calcBuySell(TF_PERIOD_1,idx);
+       cmd1 = calcBuySell(TF_PERIOD_1, idx, depth);
    } 
    if(AT_PERIOD2 != AT_TIME_NONE) {
-       cmd2 = calcBuySell(TF_PERIOD_2,idx);
+       cmd2 = calcBuySell(TF_PERIOD_2, idx, depth);
    } 
    if(AT_PERIOD3 != AT_TIME_NONE) {
-       cmd3 = calcBuySell(TF_PERIOD_3,idx);
+       cmd3 = calcBuySell(TF_PERIOD_3, idx, depth);
    } 
 
    if(!(calcCmdSame(cmd1, cmd2))) {
@@ -669,11 +676,13 @@ int calcBuySellX(const int idx=0) {
     };
 }
 
+
 bool calcTimeOk() { // ?
    const datetime dt_off = order_main_last + (datetime) ORDER_ST_PERIOD;
    const datetime dt_now = TimeCurrent();
    return (dt_now >= dt_off);
 }
+
 
 int atOpenOrder(const int cmd) {
    logMessage(LOG_ORDER,__FUNCTION__);
@@ -699,7 +708,8 @@ int atOpenOrder(const int cmd) {
    return order;
 }
 
-int calcOrderOpen() {
+
+int calcOrderOpen(const int depth) {
    // if BUYSELLL, SPREAD, TRENDX, and XOVER signals ... for all configured time frames ... => openOrder(...)
    
    // called from OnTimer()
@@ -708,20 +718,23 @@ int calcOrderOpen() {
    
    if(calcTimeOk()) { // NOTE: calcTimeOk() - simple time-rate slowing for order open/close cycles
       // FIXME : calcTimeOk => market rate can still spike sharply & adversely within that duration
-      const int cmd = calcBuySellX(0); // market bear/bull tick state must correspond across all configured time frames
+      const int cmd = calcBuySellX(0,depth); // market bear/bull tick state must correspond across all configured time frames
       if (cmd == -1) {
+         logMessage(LOG_ORDER,__FUNCTION__ + " exit - no consistent buy/sell");
          return -1; // not cmd
       } else {
-         const bool spreadx = calcSpreadX(0);
+         const bool spreadx = calcSpreadX(0,depth);
          if (spreadx) {
-            const bool xoverx = calcXoverX(0,CALC_DEPTH);
+            const bool xoverx = calcXoverX(0,depth);
             if(xoverx) {
                int order = atOpenOrder(cmd);
                return order;
             } else {
+                        logMessage(LOG_ORDER,__FUNCTION__ + " exit - no xover calc");
                return -1; // not xoverx
             }
          } else {
+            logMessage(LOG_ORDER,__FUNCTION__ + " exit - spread/OC");
             return -1; // not spreadx
          } 
       } // cmd ok
@@ -729,6 +742,7 @@ int calcOrderOpen() {
       return -1; // not calcTimeOk()
    }
 }
+
 
 int atCloseOrder() {
    // FIXME: {trend,xover}=>open and {trend,xover}=>close signals beign applied to same market rate tick
@@ -749,6 +763,7 @@ int atCloseOrder() {
    }
 }
 
+
 int calcOrderClose() {
    // if  AST_REV_ENAB and calcReversal ... for all configured time frames ... => closeOrder
    // if  AST_XOV_ENAB and calcXover ... for all configured time frames ... => closeOrder
@@ -757,24 +772,30 @@ int calcOrderClose() {
    //
    // logMessage(LOG_ORDER,__FUNCTION__);
    
-   // NB: This does not check to ensure whether {order,market} is or is not at a rate providing an ROI
+   // NB: This does not check to ensure whether {order,market} is or is not at a rate to an ROI
    
    // FIXME : calcTimeOk => market rate can still spike sharply & adversely within that duration
    
    // FIXME : calcTimeOk not applied in this function
-   
-   
-   
+
+   // Novel Idea for updating order close logic:
+   // * if market rate is spiking adversely, close order
+   // * else leave order open until next && REV_ENAB REVERSAL , && XOV_ENAB XOVER
    if(AST_REV_ENAB && calcReversalX(0,1)) { // FIXME: calc-close calc depth always 1
       // FIXME: update calcReversal => calcOpenReversal, calcCloseReversal
+      logMessage(LOG_ORDER,__FUNCTION__ + " close - reversal");
       return atCloseOrder();
    } else if (AST_XOV_ENAB && calcXoverX(0,1)) { // FIXME: calc-close calc depth always 1
-      // FIXME: update calcXover => calcOpenXover, calcCloseXover
+      // FIXME: update calcXover => calcOpenXover, calcCloseXover ?
+      // or calcOpenXover, calcStoplossXover, calcROIXover ?
+      logMessage(LOG_ORDER,__FUNCTION__ + " close - xover");
       return atCloseOrder();
    } else {
       return 0;
    }
 }
+
+
 
 // - Event Handling Functions, MQL
 
@@ -784,14 +805,15 @@ void OnInit() {
    EA_SYMBOL = ChartSymbol();
       
    // NB: global calc_period (FIXME)
-   calc_period = CALC_DEPTH * MathMax(AT_M_PERIOD,MathMax(AT_S_PERIOD + AT_O_PERIOD, AT_T_PERIOD));
+   calc_period = CALC_DEPTH;
+   const int init_depth = CALC_DEPTH * MathMax(AT_M_PERIOD,MathMax(AT_S_PERIOD + AT_O_PERIOD, AT_T_PERIOD));
 
    atValidateInputs();
    // - Init Visual Properties (NA for this EA?)
    IndicatorShortName(StringFormat("%s(%s)", label, EA_SYMBOL));
    // - Init Data
    // HERE: Initialize to depth of calc_period
-   atInitData(calc_period); 
+   atInitData(init_depth); 
    // Init Timer
    atInitTimer();
    
@@ -815,9 +837,9 @@ void OnDeinit(const int reason) {
    atDeinitTimer();
 }
 
-datetime ontick_last = 0;
 
 // NB - WHACKY PLATFORM - OnTick is being called WAY TOO OFTEN, before the chart has even advanced
+
 void OnTick() {
    // calcHA(calc_period,0,Open,High,Low,Close); // original logic
    // - logic as applied with STACKBUFF - calcHA handled in atUpdateData
@@ -831,20 +853,15 @@ void OnTick() {
    for(int tf = 0; tf < N_TFRAME; tf++) {
       int tframe = timeframes[tf];
       if ((tframe != AT_TIME_NONE) && !update) {
-         dt_next = ontick_last + (tframe * 60); // NB: tframe is defined in units of minutes
-         update = dt_now >= dt_next; // FIXME: Fold this into the timeOk calculation
-         
-         // if((dt_now < dt_next) && !update) {
-         //   return; // NT: This woujld result in an update only onto the longest timeframe
-         // };
-         
+         dt_next = ontick_last + (tframe * TFRAME_SCALE); // NB: tframe is defined in units of minutes
+         update = dt_now >= dt_next; // FIXME: Fold this into the timeOk calculation         
          // FIXME: also record a dt_last field for each timeframe? - so as to push data on timeframe advance, or update current data when not on timeframe advance
       };
    };
    if(update) {
-      logMessage(LOG_PROGRAM, __FUNCTION__ + " advance");
-      // FIXME: only advance for timeframes to which dt_next >= dt_now ?
-      atUpdateData(1); // NB: depth 1 may not apply for every configured timeframe
+      // logMessage(LOG_PROGRAM, __FUNCTION__ + " advance");
+      // FIXME: only advance for specific timeframes in which dt_next >= dt_now
+      atUpdateData(calc_period); // NB: depth 1 may not apply for every configured timeframe
       ontick_last = dt_now;
    }
 }
@@ -862,15 +879,15 @@ void OnTimer() {
       atHandleError(); 
       return;
    }
-   // Not being called : calcOrderOpen ?
+
    if(order_main > 0) {
       retv = calcOrderClose(); // CONDITIONALLY CLOSES ORDER 
    } else if (AT_ALWAYS && !AT_ONCE) {
-      const int cmd = calcBuySell(0,0);
+      const int cmd = calcBuySell(0,0,calc_period); // FIXME: Timeframe 0 must be configured
       retv = atOpenOrder(cmd);
       AT_ONCE = true;
    } else {
-      retv = calcOrderOpen(); // CONDITIONALLY CALCULATES ORDER OPEN CMD, -1 IF NO OPEN
+      retv = calcOrderOpen(calc_period); // CONDITIONALLY CALCULATES ORDER OPEN CMD, -1 IF NO OPEN
       if(retv < 0) {
          return; // no cmd - FIXME: and no error ?
       } else {
