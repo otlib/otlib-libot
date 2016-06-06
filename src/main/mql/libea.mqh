@@ -307,6 +307,17 @@ void initDataBufferDbl(double &ptr[], int nr, int len, bool asSeries = true) {
    ArraySetAsSeries(ptr,asSeries);
 }
 
+
+void initDataBufferDblEA(double &ptr[], /* int nr, */ int len, bool asSeries = true) {
+   // FIXME: rename => initCalcBufferDbl
+   ArrayResize(ptr,len,rsvbars); // DO BEFORE SetIndexBuffer - see ArrayResize docu
+   // SetIndexBuffer not avaialble in EA programs
+   // SetIndexBuffer(nr,ptr,INDICATOR_CALCULATIONS); // FIXME: INDICATOR_DATA not documented
+   ArrayInitialize(ptr,dblz); // cannot pass interpreted value as default value. MQL is not Lisp
+   // DO LAST:
+   ArraySetAsSeries(ptr,asSeries);
+}
+
 void initDrawBuffer(double &ptr[], int nr, int len, string lbl, int style=DRAW_LINE, int draw_begin=0, bool asSeries=true) {
    ArrayResize(ptr,len,rsvbars); // DO BEFORE SetIndexBuffer - see ArrayResize docu
    SetIndexBuffer(nr,ptr,INDICATOR_DATA);

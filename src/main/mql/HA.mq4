@@ -27,6 +27,7 @@
  *
  */
 
+
 // - Metadata
 #property copyright "Sean Champ"
 #property link      "http://onename.com/spchamp"
@@ -66,6 +67,7 @@ const string label   = "HA";
 
 // - Code
 
+#undef STACKBUFF
 #include "libha.mqh"
 
 void OnInit() {
