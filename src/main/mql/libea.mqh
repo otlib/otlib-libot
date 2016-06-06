@@ -259,6 +259,22 @@ void logDebug(const string message) {
    }
 }
 
+bool deinitClose(const int reason) {
+   // utility for applying in OnDeinit
+   // returns true if `reason` - as provided via OnDeinit - would indicate that the current MQL program is exiting
+   switch(reason) {
+      case REASON_CHARTCHANGE: 
+         return false;
+      case REASON_PARAMETERS:
+         return false;
+      case REASON_ACCOUNT:
+         return false;
+      case REASON_TEMPLATE:
+         return false;
+      default: return true;
+   }
+}
+
 // datetime dtbuff[][512]; // ? pointers & references in MQL4 ?
 // const MqlDateTime dtzs;
 // const datetime dtz = StructToTime(dtzs); 

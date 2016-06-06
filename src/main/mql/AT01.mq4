@@ -799,19 +799,6 @@ void OnInit() {
    // thus allowing failover to OnDeinit
 }
 
-bool deinitClose(const int reason) {
-   switch(reason) {
-      case REASON_CHARTCHANGE: 
-         return false;
-      case REASON_PARAMETERS:
-         return false;
-      case REASON_ACCOUNT:
-         return false;
-      case REASON_TEMPLATE:
-         return false;
-      default: return true;
-   }
-}
 
 void OnDeinit(const int reason) {
    // logMessage(LOG_PROGRAM, __FUNCTION__ + " " + (string) reason);
