@@ -92,7 +92,6 @@
 
 * Sean Champ
     * Blockchain Address: `1MA86SH2KWTh7Czn7qVrGn1qm3mcNReUhs`
-    * Ether Address: `0x7E2C46D2AbFa09e556AeD8e93b9cCC2D16f2F228`
     * [Onename Profile](https://onename.com/spchamp)
 
 # Copyright
