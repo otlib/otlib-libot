@@ -65,20 +65,31 @@
 // - Program Parameters
 const string label   = "HA";
 
+string EA_SYMBOL;
+
 // - Code
 
 #undef STACKBUFF
+// #define RINGBUFF
 #include "libha.mqh"
 
 void OnInit() {
+   EA_SYMBOL = getCurrentSymbol();
    IndicatorShortName(label);
    IndicatorDigits(Digits);
    IndicatorBuffers(7);    
-   bufflen = iBars(NULL, 0);
-   // NB: SetIndexBuffer may <not> accept a buffer of class type elements, e.g. Trend
-   haInitBuffers(0, bufflen);
+   const int nbars = iBars(NULL, 0);
+   haInitBuffers(0, nbars);
 }
 
+#ifdef RINGBUFF
+void OnDeinit(const int reason) {
+   if(deinitClose(reason)) {
+      // TO DO : haDeinitData()
+      delete rbuff;
+   };
+};
+#endif;
 
 int OnCalculate(const int nticks,
                 const int counted,
@@ -90,11 +101,17 @@ int OnCalculate(const int nticks,
                 const long &tick_volume[],
                 const long &volume[],
                 const int &spread[]) {
-   int haCount;
 
    haPadBuffers(nticks);
-
-   haCount = calcHA(nticks,0,open,high,low,close);
+   
+   #ifndef RINGBUFF
+   const int haCount = calcHA(nticks,0,open,high,low,close);
+   #endif
+   
+   #ifdef RINGBUFF
+   const int toCount = nticks - counted;
+   const int haCount = calcHA(rbuff,nticks,counted,EA_SYMBOL,PERIOD_CURRENT,0);
+   #endif
    return haCount;
 }
 

@@ -59,7 +59,9 @@
 #define EMPTY -1
 #endif
 
-#define RINGBUFF
+#ifndef RINGBUFF
+#define RINGBUFF // default bufer structure impl 
+#endif 
 
 // - Data Structures
 
@@ -78,7 +80,7 @@ class SimpleRingBuffer {
 
    public:
    // - public construtor methods
-      SimpleStackBuffer(const bool asTSeries) {
+      SimpleRingBuffer(const bool asTSeries) {
          this.asTimeSeries = asTSeries;
          this.fill = 0;
          this.datumidx = 0;
@@ -86,8 +88,16 @@ class SimpleRingBuffer {
          // this.data = data[N_TFRAME][N_DATAPTR][BUFFLEN]; // data buffer is automatically initialized ?
       };
 
+      SimpleRingBuffer() {
+         this.asTimeSeries = true;
+         this.fill = 0;
+         this.datumidx = 0;
+         this.tframeidx = 0;
+         // this.data = data[N_TFRAME][N_DATAPTR][BUFFLEN]; // data buffer is automatically initialized ?
+      };
+
    // - destrutor methods
-      ~SimpleStackBuffer() {
+      ~SimpleRingBuffer() {
          ArrayFree(data);
       }
 
@@ -142,7 +152,7 @@ class SimpleRingBuffer {
       }; 
       
       void set(BUFF_T datum, int n=EMPTY, int idx=EMPTY, int tframe=EMPTY) {
-      // set one datum at the indicated position
+      // set one datum at the indicated array coordinates
          if(n == EMPTY) {
             n = this.fill;
          };
@@ -152,16 +162,26 @@ class SimpleRingBuffer {
          if (tframe == EMPTY) {
             tframe = this.tframeidx;
          };
-         // logMessage(LOG_CALC,__FUNCTION__ + StringFormat(" datum %f, n %d, datum idx %d, tframe %d", datum, n, idx, tframe));
+         // Print(__FUNCTION__ + StringFormat(" datum %f, n %d, datum idx %d, tframe %d", datum, n, idx, tframe));
          this.data[tframe][idx][n]=datum; // assuming C++ order for array domains
       };
       
+      virtual void empty() { return; }; // FIXME/NB: MQL defines all virtual fns as 'private'
+      virtual void synch() { return; };
+      
+      void reset() { // essentially a public scoped interfae to empty()
+         empty();
+      };
+
       int shift() {
-      // update fill, returning new fill value
+      // increment fill.
+      // if fill is == buffer length,
+      // then synch buffers (oubound data) and update fill, 
+      // returning new fill value
+         this.fill++;
          if (this.fill == BUFFLEN) {
+            synch();
             this.fill = 0;
-         } else {
-            this.fill++;
          };
          return this.fill;
       };
