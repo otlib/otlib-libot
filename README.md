@@ -86,13 +86,11 @@
 
 * [Open Trading Toolkit - libot Wiki][libot-wiki]
 * [Open Trading Toolkit - Documentation Library][otlib-doc]
-* [Open Trading Toolkit - Project Web Resources][otlib-site]
 
 **Developers**
 
 * Sean Champ
     * Blockchain Address: `1MA86SH2KWTh7Czn7qVrGn1qm3mcNReUhs`
-    * Ether Address: `0x7E2C46D2AbFa09e556AeD8e93b9cCC2D16f2F228`
     * [Onename Profile](https://onename.com/spchamp)
 
 # Copyright
@@ -125,7 +123,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-[libot]: https://github.com/otlib/otlib-libot "Open Trading Toolkit - Open Trading Library"
-[libot-wiki]: https://github.com/otlib/otlib-libot/wiki "Open Trading Toolkit - libot wiki"
-[otlib-doc]: https://github.com/otlib/otlib-doc "Open Trading Toolkit - Documentation Library"
-[otlib-site]: https://github.com/otlib/otlib.github.io "Open Trading Toolkit - Project Web Resources"
+[libot]: https://github.com/tekb-fintek/otlib-libot "Open Trading Toolkit - Open Trading Library"
+[libot-wiki]: https://github.com/tekb-fintek/otlib-libot/wiki "Open Trading Toolkit - libot wiki"
+[otlib-doc]: https://github.com/tekb-fintek/otlib-doc "Open Trading Toolkit - Documentation Library"
+
