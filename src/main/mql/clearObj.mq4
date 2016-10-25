@@ -32,11 +32,16 @@
 #property version   "1.00"
 #property strict
 
-void OnStart()
-  {
-   ObjectsDeleteAll(0,-1);
-   ObjectsDeleteAll(0,OBJ_TEXT);
-   ObjectsDeleteAll(0,OBJ_LABEL);
-   
-  }
-//+------------------------------------------------------------------+
+void del(const long chart, const int subwindow) {
+   ObjectsDeleteAll(chart,NULL,subwindow,-1);
+   ObjectsDeleteAll(chart,NULL,subwindow,OBJ_TEXT);
+   ObjectsDeleteAll(chart,NULL,subwindow,OBJ_LABEL);
+}
+
+void OnStart() {
+   const int nwin = WindowsTotal();
+   const long chart = ChartID();
+   for (int n = 0; n < nwin; n++) {
+      del(chart,n);
+   }
+}
