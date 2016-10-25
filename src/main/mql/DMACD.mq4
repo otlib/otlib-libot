@@ -36,7 +36,7 @@
 // - Metadata
 #property copyright "Sean Champ"
 #property link      "http://onename.com/spchamp"
-#property description "MACD Moving Percentage Indicator, OTLIB"
+#property description "MACD Difference Indicator, OTLIB"
 #property version   "1.00"
 #property strict
 #property script_show_inputs
@@ -90,7 +90,7 @@ void OnInit() {
    IndicatorDigits(Digits+2);
    IndicatorBuffers(2); // two drawn buffers, no additional data buffers
    bufflen = iBars(NULL, DMACD_TF);
-   initDrawBuffer(MDiff,0,bufflen,"MACD Moving Percentage",DRAW_LINE,0,true);
+   initDrawBuffer(MDiff,0,bufflen,"MACD Difference",DRAW_LINE,0,true);
    initDrawBuffer(MRatio,1,bufflen,"MACD Price Ratio",DRAW_LINE,0,true);
 }
 
