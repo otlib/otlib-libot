@@ -27,6 +27,9 @@
  *
  */
  
+ // Synopsis: The MACDMA "Gross moving average" may serve as an
+ //           indicator of overall "Market rate trend"
+ 
  // NOTE: This indicator develops a concept of "Gross moving average," 
  // in which the moving average is calculated across the entire historic
  // data set. Contrast to a concept of "Net moving average," in which
@@ -57,7 +60,7 @@ input ENUM_APPLIED_PRICE   METHOD_PRICE = PRICE_TYPICAL; // Price Computation Me
 
 
 // - Program Parameters
-const string               label   = "MACDMA";
+const string               label   = "MACDMA"; // FIXME: Update label in OnInit, illustrating EMAFP, EMASP parameters
 const int                  MACDMA_SIGP = 5; // MACDMA SMA i.e signal period 
 // Note: MACDMA signal line is unused in this indicator
 
@@ -69,9 +72,9 @@ const string               MACDMA_SYMBOL = getCurrentSymbol();
 
 double MMain[]; // iMACD term
 double MMavg[]; // moving average - sum of iMACD terms over nterms
-double sumHistoric; // sum for moving average
-double sumCurrent; // sum for updating tick 0
-int nterms; // number of terms in moving average
+double sumHistoric = dblz; // sum for moving average
+double sumCurrent = dblz; // sum for updating tick 0
+int nterms = 0; // number of terms in moving average
 datetime newestTick; // TBD: Tick-DT conversion
 
 int bufflen;
@@ -143,6 +146,7 @@ int OnCalculate(const int ntick,
                 const int &spread[]) {
    
    const int ncount = ntick - prev_count;
+   // ^ FIXME: Document calculation behavior when changing timeframes in current chart
 
    // fooPadBuffers(ntick);
    PrintFormat("MACDMA::OnCalculate(%d, %d, ...)", ntick, prev_count); // DEBUG
@@ -154,13 +158,15 @@ int OnCalculate(const int ntick,
    if(ncount  > 0) {
       if (prev_count == 0) {
          // reset
-         sumCurrent = 0.0;
+         sumHistoric = dblz;
+         sumCurrent = dblz;
          nterms = 0;
       }
       macdmaPadBuffers(ncount); // Memory Management
       for(int n = ncount-1; n >=0; n--) {
          calcMACDMAHistoric(n);
       }
+      sumCurrent = sumHistoric;
    } else {
       if(getNTOffset() != 0) {
          pushMACDMACurrent();
