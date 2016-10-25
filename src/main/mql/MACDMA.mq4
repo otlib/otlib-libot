@@ -27,24 +27,23 @@
  *
  */
  
- // FIXME - Remove indicator 2 - the unaveraged MACD term is "Scaling out" the moving average
-
+ // NOTE: This indicator develops a concept of "Gross moving average," 
+ // in which the moving average is calculated across the entire historic
+ // data set. Contrast to a concept of "Net moving average," in which
+ // the moving average would be caulculated across an interval p = 5.
+ 
 // - Metadata
 #property copyright "Sean Champ"
 #property link      "http://onename.com/spchamp"
-#property description "Heikin Ashi Difference Indicator, Open Trading Toolkit"
+#property description "MACD Moving Average Indicator, OTLIB"
 #property version   "1.00"
 #property strict
 #property script_show_inputs
 #property indicator_separate_window
-#property indicator_buffers 2 // number of drawn buffers
+#property indicator_buffers 1 // number of drawn buffers
 
 #property indicator_color1 clrSilver // Moving Average of MACD
 #property indicator_width1 3
-
-#property indicator_color2 clrMidnightBlue // MACD Main Term
-#property indicator_width2 2
-
 
 // 'input' parameters
 
@@ -83,6 +82,7 @@ int macdmaPadBuffers(const int len) {
       // FIXME: rename 'rsvbars' (defined in libea.mqh)
       ArrayResize(MMain,len,rsvbars);
       ArrayResize(MMavg,len,rsvbars);
+      PrintFormat("MACDMA::Pad Buffers %d => %d ",bufflen, len); // DEBUG
       bufflen = len;
    } 
    return bufflen;
@@ -91,10 +91,10 @@ int macdmaPadBuffers(const int len) {
 void OnInit() {
    IndicatorShortName(label);
    IndicatorDigits(Digits+2);
-   IndicatorBuffers(2);    
+   IndicatorBuffers(2); // one drawn buffer, one data buffer
    bufflen = iBars(NULL, MACDMA_TF);
-   initDrawBuffer(MMavg,0,bufflen,"MACD Moving Average",DRAW_HISTOGRAM,0,true);
-   initDrawBuffer(MMain,1,bufflen,"MACD Main Term",DRAW_HISTOGRAM,0,true);
+   initDrawBuffer(MMavg,0,bufflen,"MACD Moving Average",DRAW_LINE,0,true);
+   initDataBufferDbl(MMain,1,bufflen,true);
 }
 
 double calcMACD(const int backshift) {
