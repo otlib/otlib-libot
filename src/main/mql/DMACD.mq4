@@ -46,6 +46,10 @@
 #property indicator_color1 clrSilver // Moving Difference of MACD
 #property indicator_width1 2
 
+
+#property indicator_color2 clrMidnightBlue // DMACD / Price
+#property indicator_width2 2
+
 // 'input' parameters
 
 
@@ -65,7 +69,7 @@ const string               DMACD_SYMBOL = getCurrentSymbol();
 // - Code
 
 double MDiff[]; // moving percentage  - sum of iMACD terms over nterms
-// datetime newestTick; // UNUSED
+double MRatio[]; // ratio - MDiff / Price
 
 int bufflen;
 
@@ -84,15 +88,55 @@ void OnInit() {
    const string labelf = StringFormat("%s(%d,%d)",label,DMACD_EMAFP,DMACD_EMASP);
    IndicatorShortName(labelf);
    IndicatorDigits(Digits+2);
-   IndicatorBuffers(1); // one drawn buffer, no additional data buffers
+   IndicatorBuffers(2); // two drawn buffers, no additional data buffers
    bufflen = iBars(NULL, DMACD_TF);
    initDrawBuffer(MDiff,0,bufflen,"MACD Moving Percentage",DRAW_LINE,0,true);
+   initDrawBuffer(MRatio,1,bufflen,"MACD Price Ratio",DRAW_LINE,0,true);
 }
 
 double calcMACD(const int backshift) {
    // iMACD computation is orchestrated witih greater shift => older 'tick'
    const double m = iMACD(DMACD_SYMBOL,DMACD_TF,DMACD_EMAFP,DMACD_EMASP,DMACD_SIGP,METHOD_PRICE,MODE_MAIN,backshift);
    return m;
+}
+
+// FIXME: Move calcPrice to libea.mqh
+double calcPrice(const int n, 
+                 const int timeframe, 
+                 const string symbol, 
+                 const int method) {
+   // n : backshift
+   switch(method) { 
+      case PRICE_OPEN:
+         return iOpen(symbol,timeframe,n);
+      case PRICE_HIGH:
+         return iHigh(symbol,timeframe,n);
+      case PRICE_LOW:
+         return iLow(symbol,timeframe,n);
+      case PRICE_CLOSE:
+         return iClose(symbol,timeframe,n);
+      case PRICE_MEDIAN: { 
+            const double high = iHigh(symbol,timeframe,n);
+            const double low = iLow(symbol,timeframe,n);
+            return (high + low) / 2; 
+      }
+      case PRICE_TYPICAL: { 
+         const double high = iHigh(symbol,timeframe,n);
+         const double low = iLow(symbol,timeframe,n);
+         const double close = iClose(symbol,timeframe,n);
+         return (high + low + close) / 3; 
+      }
+      case PRICE_WEIGHTED: { 
+         const double high = iHigh(symbol,timeframe,n);
+         const double low = iLow(symbol,timeframe,n);
+         const double close = iClose(symbol,timeframe,n);
+         return (high + low + (2 * close)) / 4; 
+      }
+      default: {
+         PrintFormat("Unrecognized price method specifier: %d", method);
+         return dblz;
+      }
+   }
 }
 
 void calcDMACDHistoric(const int backshift) {
@@ -102,6 +146,9 @@ void calcDMACDHistoric(const int backshift) {
    const double curr = calcMACD(backshift);
    const double diff = curr - prev;
    MDiff[backshift]= diff;
+   
+   const double price = calcPrice(backshift,DMACD_TF,DMACD_SYMBOL,METHOD_PRICE);
+   MRatio[backshift] = curr / price;
 }
 
 
