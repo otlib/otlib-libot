@@ -27,14 +27,9 @@
  *
  */
  
- // Synopsis: The MACDMA "Gross moving average" may serve as an
- //           indicator of overall "Market rate trend"
- 
- // NOTE: This indicator develops a concept of "Gross moving average," 
- // in which the moving average is calculated across the entire historic
- // data set. Contrast to a concept of "Net moving average," in which
- // the moving average would be caulculated across an interval p = 5.
- 
+// Synopsis: The MACDMA "Moving Average" may serve as an indicator of 
+//           overall "Market rate trend"
+
 // - Metadata
 #property copyright "Sean Champ"
 #property link      "http://onename.com/spchamp"
@@ -56,6 +51,7 @@
 input ENUM_TIMEFRAMES      MACDMA_TF = PERIOD_CURRENT; // Timeframe for analysis
 input int                  MACDMA_EMAFP = 15; // Fast EMA Period
 input int                  MACDMA_EMASP = 30; // Slow EMA Period
+input int                  MACDMA_PMA = 5;   // Period for moving average
 input ENUM_APPLIED_PRICE   METHOD_PRICE = PRICE_TYPICAL; // Price Computation Method
 
 
@@ -72,9 +68,7 @@ const string               MACDMA_SYMBOL = getCurrentSymbol();
 
 double MMain[]; // iMACD term
 double MMavg[]; // moving average - sum of iMACD terms over nterms
-double sumHistoric = dblz; // sum for moving average
 double sumCurrent = dblz; // sum for updating tick 0
-int nterms = 0; // number of terms in moving average
 datetime newestTick; // TBD: Tick-DT conversion
 
 int bufflen;
@@ -91,8 +85,9 @@ int macdmaPadBuffers(const int len) {
    return bufflen;
 }
 
-void OnInit() {
-   IndicatorShortName(label);
+void OnInit() {   
+   const string labelf = StringFormat("%s(%d,%d,%d)",label,MACDMA_EMAFP,MACDMA_EMASP,MACDMA_PMA);
+   IndicatorShortName(labelf);
    IndicatorDigits(Digits+2);
    IndicatorBuffers(2); // one drawn buffer, one data buffer
    bufflen = iBars(NULL, MACDMA_TF);
@@ -108,25 +103,26 @@ double calcMACD(const int backshift) {
 
 void calcMACDMAHistoric(const int backshift) {
    // iMACD calculation is conducted witih greater shift -> older 'tick'
-   const double m = calcMACD(backshift);
-   MMain[backshift]= m;
-   sumHistoric += m;
-   MMavg[backshift]= sumHistoric / ++nterms;
+   double sumHistoric = dblz;
+   double m = dblz;
+   for(int n = MACDMA_PMA - 1; n>=0; n--) {
+      m = calcMACD(backshift + n);
+      sumHistoric += m;
+   }
+   // FIXME: MMain retained for informative purposes, otherwise unused
+   MMain[backshift]= m; // last m at n = 0
+
+   MMavg[backshift]= sumHistoric / MACDMA_PMA;
 }
 
 
 void calcMACDMACurrent() {
-   const double m = calcMACD(0);
-   MMain[0]= m;
-   sumCurrent = sumHistoric + m;
-   MMavg[0]= sumCurrent / nterms;
+   calcMACDMAHistoric(0);
 }
 
-void pushMACDMACurrent() {
-   sumHistoric = sumCurrent;
-   ++nterms;
-   newestTick = TimeCurrent();
-}
+// void pushMACDMACurent() { // UNUSED
+//   newestTick = TimeCurrent();
+// }
 
 int getNTOffset() {
    const int tidx = iBarShift(MACDMA_SYMBOL,MACDMA_TF,newestTick,false);
@@ -149,31 +145,28 @@ int OnCalculate(const int ntick,
    // ^ FIXME: Document calculation behavior when changing timeframes in current chart
 
    // fooPadBuffers(ntick);
-   PrintFormat("MACDMA::OnCalculate(%d, %d, ...)", ntick, prev_count); // DEBUG
+   // PrintFormat("MACDMA::OnCalculate(%d, %d, ...)", ntick, prev_count); // DEBUG
    
    // NB: market spread (ask, offer difference) not automatically recorded in market history
    // double sp = getSpread();
    
    
    if(ncount  > 0) {
-      if (prev_count == 0) {
-         // reset
-         sumHistoric = dblz;
-         sumCurrent = dblz;
-         nterms = 0;
-      }
+//      if (prev_count == 0) {
+         // reset - unused
+//      }
       macdmaPadBuffers(ncount); // Memory Management
-      for(int n = ncount-1; n >=0; n--) {
+      const int lim = ncount - MACDMA_PMA;
+      for(int n = 0; n <=lim; n++) {
          calcMACDMAHistoric(n);
       }
-      sumCurrent = sumHistoric;
    } else {
-      if(getNTOffset() != 0) {
-         pushMACDMACurrent();
-         PrintFormat("MACDMA: PUSH CURRENT"); // DEBUG
-      }
+      // if(getNTOffset() != 0) {
+      //   pushMACDMACurrent(); // UNUSED
+      //   // PrintFormat("MACDMA: PUSH CURRENT"); // DEBUG
+      // }
       calcMACDMACurrent();
    }
-   PrintFormat("MACDMA::Current %f, %d ", sumCurrent, nterms ); // DEBUG
+   // PrintFormat("MACDMA::Current %f, %d ", sumCurrent, nterms ); // DEBUG
    return ntick;
  }
