@@ -113,8 +113,8 @@ double calcMACD(const int backshift) {
 void calcMACDMAPHistoric(const int backshift) {
    // iMACD calculation is conducted witih greater shift -> older 'tick'
    
-   const double prev = MathAbs(calcMACD(backshift + 1));
-   const double cur = MathAbs(calcMACD(backshift));
+   const double prev = calcMACD(backshift + 1);
+   const double cur = calcMACD(backshift);
    double percentage;
 
    if(prev == 0) {
