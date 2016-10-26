@@ -100,45 +100,6 @@ double calcMACD(const int backshift) {
    return m;
 }
 
-// FIXME: Move calcPrice to libea.mqh
-double calcPrice(const int n, 
-                 const int timeframe, 
-                 const string symbol, 
-                 const int method) {
-   // n : backshift
-   switch(method) { 
-      case PRICE_OPEN:
-         return iOpen(symbol,timeframe,n);
-      case PRICE_HIGH:
-         return iHigh(symbol,timeframe,n);
-      case PRICE_LOW:
-         return iLow(symbol,timeframe,n);
-      case PRICE_CLOSE:
-         return iClose(symbol,timeframe,n);
-      case PRICE_MEDIAN: { 
-            const double high = iHigh(symbol,timeframe,n);
-            const double low = iLow(symbol,timeframe,n);
-            return (high + low) / 2; 
-      }
-      case PRICE_TYPICAL: { 
-         const double high = iHigh(symbol,timeframe,n);
-         const double low = iLow(symbol,timeframe,n);
-         const double close = iClose(symbol,timeframe,n);
-         return (high + low + close) / 3; 
-      }
-      case PRICE_WEIGHTED: { 
-         const double high = iHigh(symbol,timeframe,n);
-         const double low = iLow(symbol,timeframe,n);
-         const double close = iClose(symbol,timeframe,n);
-         return (high + low + (2 * close)) / 4; 
-      }
-      default: {
-         PrintFormat("Unrecognized price method specifier: %d", method);
-         return dblz;
-      }
-   }
-}
-
 void calcDMACDHistoric(const int backshift) {
    // iMACD calculation is conducted witih greater shift -> older 'tick'
    
