@@ -41,7 +41,7 @@
 #property strict
 #property script_show_inputs
 #property indicator_separate_window
-#property indicator_buffers 1 // number of drawn buffers
+#property indicator_buffers 2 // number of drawn buffers
 
 #property indicator_color1 clrSilver // Moving Difference of MACD
 #property indicator_width1 2
