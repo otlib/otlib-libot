@@ -1,0 +1,16 @@
+[submodule "assets-3p/docbook-schemas"]
+	path = assets-3p/docbook-schemas
+	url = git@github.com:docbook/docbook.git
+	branch = docbook50-rewind
+[submodule "assets-3p/docbook-xslt20-stylesheets"]
+	path = assets-3p/docbook-xslt20-stylesheets
+	url = git@github.com:docbook/xslt20-stylesheets.git
+	branch = master
+[submodule "assets-3p/docbook-xslt20-resources"]
+	path = assets-3p/docbook-xslt20-resources
+	url = git@github.com:docbook/xslt20-resources.git
+	branch = master
+[submodule "assets-3p/docbook-xslt20-java"]
+	path = assets-3p/docbook-xslt20-java
+	url = git@github.com:docbook/xslt20-java.git
+	branch = saxon95
