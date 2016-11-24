@@ -5,7 +5,7 @@
 
 **Project Status:** Development
 
-**Project Resources**
+**Project Resources - Mainainer Notes**
 
 **Ed Note:** This documentation may be at least _one week_ behind, in updates. Current information is available in the source code directory `src/main/mql/`
 
