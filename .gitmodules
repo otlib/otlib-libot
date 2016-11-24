@@ -14,3 +14,6 @@
 	path = assets-3p/docbook-xslt20-java
 	url = git@github.com:docbook/xslt20-java.git
 	branch = saxon95
+[submodule "content/wiki"]
+	path = content/wiki
+	url = ../otlib-libot.wiki.git
