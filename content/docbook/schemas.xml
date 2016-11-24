@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<!-- Schema locating rules for nXML -->
+<!DOCTYPE locatingRules [
+
+
+<!ENTITY docbook
+	"../../assets-3p/docbook-schemas/relaxng/schemas/docbook/docbook.rnc"
+>
+
+
+]>
+<locatingRules xmlns="http://thaiopensource.com/ns/locating-rules/1.0">
+
+   <!-- DocBook 5 --> 
+ <namespace ns="http://docbook.org/ns/docbook" uri="&docbook;"/> 
+
+ <documentElement localName="set" uri="&docbook;"/>
+ <documentElement localName="book" uri="&docbook;"/>
+ <documentElement localName="part" uri="&docbook;"/>
+ <documentElement localName="chapter" uri="&docbook;"/>
+ <documentElement localName="section" uri="&docbook;"/>
+ <documentElement localName="article" uri="&docbook;"/>
+ <documentElement localName="glossary" uri="&docbook;"/>
+ <documentElement localName="bibliography" uri="&docbook;"/>
+ <documentElement localName="appendix" uri="&docbook;"/>
+ <documentElement localName="reference" uri="&docbook;"/>
+ <documentElement localName="refentry" uri="&docbook;"/>
+
+</locatingRules>
