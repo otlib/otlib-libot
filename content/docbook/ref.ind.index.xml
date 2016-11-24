@@ -8,4 +8,51 @@
 
   &ref.ind.dmacd2;
 
+  <!-- TO DO:
+       
+       # Theory - Technical Indicators
+
+       Broader: Set Theory and Statistical Analysis (Quantitative
+       data; Qualitative analysis; Statistical Distributions; Set as
+       "Structured Data"; Price, *Volume*, and "Return" in market
+       analysis)
+
+       Corresponding Concept: Technical Analysis (Historic concepts:
+       Telegraphs, Ticker tape, and market books)
+
+       Market Price [Concept]
+
+       Candlestick [Concept] (OHLC as a data point; apropos timeframe)
+
+       Indicator Rate [Concept] (apropos essentially linear indicator
+       elements, contrasted to the OHLC structured indicator)
+       
+       Market Rate Trend [Concept]
+
+       Moving Average (emph. describing EMA, LWMA. see Investopedia,
+       other References)
+       
+       Oscillator [Concept]
+       
+       # Practical Applications of Theory - Technical Indicators
+       
+       Heikin Ashi Indicator (Candlestick using HA calculation method)
+
+       DMACD (Note: "Difference over time" indicator w/ additional
+       ratio display. Incidental application as a crossover indicator;
+       note special characteristics on non-JPY symbols)
+       
+       MACD (ref MA - EMA. see Investopedia, other references)
+       (Ed. note: "Overbought" and "Oversold" as concepts)
+
+       DOsMA  (Note: "Difference over time" indicator w/ additional
+       ratio display. Incidental application as a crossover indicator;
+       note special characteristics on JPY symbols)
+       
+       OsMA  (ref MA - EMA. see Investopedia, other references)
+
+       Ed. Note: OTLIB will not be conducting studies of "more
+       baroque" indicators such as Bollinger Bands, etc. This is in
+       keeping with the implicit "KIS" policy in OTLIB development.
+  -->
 </reference>
