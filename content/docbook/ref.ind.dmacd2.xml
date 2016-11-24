@@ -1,0 +1,25 @@
+<refentry xmlns="http://docbook.org/ns/docbook" >
+  <refnamediv>
+    <refname>DMACD2</refname>
+    <refpurpose>MACD Difference Indicator without Ratio</refpurpose>
+    <refclass>Technical Indicator</refclass>
+  </refnamediv>
+
+
+  <refsect1>
+    <title>Description</title>
+    
+    <remark>TO DO - Compare to DMACD, apropos MACD calculation,
+    oscillator TA</remark>
+
+    <sidebar>
+      <title>Analogous Indicator: CCI</title>
+      
+      <para>The presentation of the DMACD2 <glossterm>technical
+      indicator</glossterm> may resemble, visually, the presentation
+      of the Composite Channel Index (CCI) <glossterm>technical
+      indicator</glossterm>.</para>
+    </sidebar>
+    
+  </refsect1>
+</refentry>

@@ -1,0 +1,11 @@
+<!DOCTYPE reference [
+
+<!ENTITY ref.ind.dmacd2 SYSTEM "ref.ind.dmacd2.xml">
+
+]>
+<reference xmlns="http://docbook.org/ns/docbook" >
+  <title>Technical Indicators</title>
+
+  &ref.ind.dmacd2;
+
+</reference>
