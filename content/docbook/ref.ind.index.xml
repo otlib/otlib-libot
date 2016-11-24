@@ -9,16 +9,28 @@
   &ref.ind.dmacd2;
 
   <!-- TO DO:
-       
+       # Documentation Process
+
+       Add Copyright Information, every reference page
+
        # Theory - Technical Indicators
 
        Broader: Set Theory and Statistical Analysis (Quantitative
        data; Qualitative analysis; Statistical Distributions; Set as
        "Structured Data"; Price, *Volume*, and "Return" in market
-       analysis)
+       analysis) (See also: "AI", e.g. Predicate Logic, Propositional
+       Logic, FOL, Markov Decision Processes, Fuzzy Logic. Core
+       concepts: Systems theory - Open and Closed Systems; Observable
+       and Partially Observable Systems; Nolinear Dynamic[al] Systems;
+       Agent Systems - apropos Mechanical Trading; State Machines)
 
        Corresponding Concept: Technical Analysis (Historic concepts:
-       Telegraphs, Ticker tape, and market books)
+       Telegraphs, Ticker tape, and market books) (Contemporary
+       concepts: Intuitive Anaysis; "Signals" in Indicators; Trading
+       Platfors - "Signal" Subscriptions in MetaTrader 4 and
+       MetaTrader 5 platforms; "Social Trading," in the MetaTrader
+       [user] community, as if) (Broader/Orthogonal concepts:
+       Macroeconomics; Economic governance; ...)
 
        Market Price [Concept]
 
@@ -27,7 +39,8 @@
        Indicator Rate [Concept] (apropos essentially linear indicator
        elements, contrasted to the OHLC structured indicator)
        
-       Market Rate Trend [Concept]
+       Market Rate Trend [Concept] (Trend "Detection"; Trend Reversal;
+       Intermediate Trends; ** "Boxed Analysis" **, ...)
 
        Moving Average (emph. describing EMA, LWMA. see Investopedia,
        other References)
