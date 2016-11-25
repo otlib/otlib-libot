@@ -246,7 +246,8 @@
 
     <remark>developed primarily in reference to EURUSD and USDCHF
     currency pairs - may not be advisable for trading onto JPY currency
-    pairs</remark>
+    pairs. When trading onto JPY currency pairs, crossover in the
+    OTLIB DMACD indicator  may be a significant indicator</remark>
 
     <remark>The development of this strategy was begun in reference to
     a duration of relatively <emphasis>volatile</emphasis> and
