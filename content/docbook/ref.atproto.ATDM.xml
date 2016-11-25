@@ -1,0 +1,290 @@
+<refentry xmlns="http://docbook.org/ns/docbook" >
+  <refnamediv>
+    <refname>ATDM</refname>
+    <refpurpose>Trading Strategy based on Events in OsMA and MACD Indicators</refpurpose>
+    <refclass>Trading Strategy</refclass>
+    <refclass>Auto-Trader Prototype</refclass>
+  </refnamediv>
+
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>The ATDM strategy proposes a principally event-oriented
+    analysis of trends in the OsMA and MACD indicators, for
+    orchestration of <emphasis>order open</emphasis> and
+    <emphasis>order close</emphasis> events. Furthermore,
+    an orchestration logic is developed, in the strategy, for purpose
+    of limiting risk on event of <emphasis>order open</emphasis> or
+    <emphasis>order close</emphasis>.</para> 
+
+    <sidebar>
+      <remark>Both of the _OsMA_ and _MACD_ indicators derive their
+      respective rate values from <glossterm>moving average</glossterm>
+      calculations.</remark>
+    </sidebar>
+
+  </refsect1>
+
+  <refsect1>
+    <title>Orchestration Logic</title>
+
+    <refsect2>
+      <title>Trend Analysis</title>
+      
+
+      <refsect3>
+        <title>Trend Analysis - DOsMA</title>
+
+        
+      </refsect3>
+      
+      <refsect3>
+        <title>Trend Analysis - MACD EMA Difference</title>
+        
+        <remark>aproxpos: Strategy during "MACD Crossover"</remark>x
+        
+      </refsect3>
+
+
+      <refsect3>
+        <title>Trend Analysis - Market Price</title>
+        
+        <remark>primarily for application in "Holding before Open";
+        may incorporate high/low diference analysis or analysis of
+        moving-average rate - e.g. EMA(5) - over time</remark>
+
+        <remark>Corresponding concept: "Boxed Analysis"</remark>
+      </refsect3>
+    </refsect2>
+
+    <refsect2>
+      <title>Orchestration Logic - Open/Close Orchestration</title>
+
+      <orderedlist>
+        <title>Synopsis - Event Flow</title>
+        
+        <listitem>
+          <para>Analysis Begins</para>
+        </listitem>
+
+        <listitem>
+          <para>Analyze Historic DOsMA Indicator Rate Data for
+          Determining Time and Rate of Minimum, Zero Crossover, and
+          Maximum of <emphasis>OsMA/Price Ratio Line</emphasis> of the
+          DOsMA Indicator, i.e <emphasis>DOsMA "R Line"</emphasis></para>
+        </listitem>
+        
+        <listitem>
+          <para>If the Min/Max trend of the DoSMA "R Line" occurs
+          without intermediate "Zero Crossover" in the rate of the
+          DoSMA "R Line"
+          <footnote>
+            <para>e.g if the "Min" and "Max" values are both
+            of a numerically negative value, or if both are of a
+            numerically positive value</para>
+            </footnote>, then place a hold on the
+          <emphasis>order open</emphasis> orchestration.</para>
+        </listitem>
+        
+        <listitem>
+          <para>At the next <emphasis>non-held</emphasis> "Zero
+          crossover" in the DOsMA "R Line," conduct
+          <emphasis>intuitive analysis</emphasis> to 
+          determine whether it may be appropriate to open a
+          <emphasis>buy order</emphasis>, a <emphasis>sell
+          order</emphasis>, or <emphasis>no
+          order</emphasis>.
+          <footnote>
+            <para>
+              In this event, the role of <emphasis>market rate
+              forecasting</emphasis> may be of a notable relevance.
+            </para>
+          </footnote>
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            After event of <emphasis>Open Order</emphasis>, conduct
+            analysis of the MACD indicator's primary rate line. In an
+            ideal market environment, the open order would be held
+            until after the MACD rate line has crossed over the MACD
+            "zero rate", i.e MACD Crossover
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            After event of <emphasis>MACD crossover</emphasis>,
+            conduct intuitive analysis of the difference of the DOsMA
+            "R line" and the DoSMA "Difference line". In an ideal
+            market environment, a strong convergence of the two
+            indicator lines - following a MACD crossover - may signal an
+            ideal situation for closing any open order.
+          </para>
+        </listitem>
+      </orderedlist>
+
+      <para>
+        This strategy is made more complicated in some events,
+        such as:
+        <simplelist>
+          <member>MACD Min/Max trend without MACD Crossover</member>
+          <member>DOsMA rate lines illustrating multiple crossovers
+          within a short duration</member>
+        </simplelist>
+      </para>
+
+      <para>
+        When there is a substantial duration beween the respective
+        DoSMA and MACD crossover events, or &mdash; failing MACD
+        crossover &mdash; beween the respective DOsMA Min/Max events,
+        and when this is in corresponding with a substantial and
+        favorable progress in market rate across the duration, then
+        this strategy may  result in an appreciable return on
+        investment.
+      </para>
+
+      
+    </refsect2>
+    
+    <refsect2>
+      <title>Orchestration Logic - Orchestration Holds</title>
+      
+      <refsect3>
+        <title>Orchestration Holds - Holding before Open</title>
+        
+        <simplelist>
+          <member>Market Spread Hold</member>
+          <member><remark>Other "Ambiguous Market" Holds - e.g
+          "Multiple DOsMA crossover without MACD Crossover"; "DMACD" or
+          "DOsMA Oscillation near zero"</remark></member>
+        </simplelist>
+
+        <formalpara>
+          <title>Market Spread Hold</title>
+          <para>
+            Calculation in the <emphasis>Market Spread Hold</emphasis>
+            is based on the difference of the magnitude of the
+            <emphasis>Market Spread</emphasis> and the magnitude of a
+            comparable <emphasis>metric</emphasis>, such as:
+            
+            <simplelist>
+              <member>
+                Difference between <emphasis>Open</emphasis> and
+                <emphasis>Close</emphasis> prices for the present, or
+                immediately previous <emphasis>Market
+                Tick</emphasis>.
+              </member>
+
+              <member>
+                As a variation of the previous: Difference between
+                <emphasis>High</emphasis> and <emphasis>Low</emphasis>
+                prices
+              </member>
+
+              <member>
+                Difference beween <emphasis>Maximum</emphasis>
+                and <emphasis>Minimum</emphasis> of
+                <emphasis>Price</emphasis> for the present or
+                immediately previous <emphasis>Market Rate
+                Trend</emphasis>. 
+              </member>
+            </simplelist>
+
+            If applying a calculation based on
+            <emphasis>Price</emphasis>, a single <emphasis>Price
+            Calculation Method</emphasis> may be applied onto the
+            market <emphasis>OHLC data</emphasis> &mdash; such as to 
+            produce an average of <emphasis>High</emphasis> and
+            <emphasis>Low</emphasis> prices for any single
+            <emphasis>Chart tick</emphasis> as the
+            <emphasis>Price</emphasis> for that <emphasis>Chart
+            Tick</emphasis>. Moreover, the methodology 
+            of <emphasis>Chart Tick</emphasis> calculation may
+            vary, as per whether a traditional
+            <emphasis>Candlestick</emphasis> methodology is applied
+            onto the available <emphasis>Open, High, Low,
+            Close</emphasis> data points for the <emphasis>market
+            rate</emphasis>, or such as the <emphasis>Heikin-Ashi
+            Candlestick</emphasis> methodology. 
+          </para>
+        </formalpara>
+
+        <para>
+          If the magnitude of the difference of the immediate
+          <emphasis>Ask</emphasis> and <emphasis>Offer</emphasis>
+          prices is numerically <emphasis>greater than</emphasis> the
+          magnitude of the comparable <emphasis>metric</emphasis>,
+          then &mdash; as a risk-limiting factor &mdash; in the
+          short-duration trading strategy developed here, it may then
+          be advisable to <emphasis>hold</emphasis> before opening any
+          new orders. 
+        </para>  
+      </refsect3>
+      
+      <refsect3>
+        <title>Orchestration Holds - Holding before Close</title>
+        
+        <simplelist>
+          <member><remark>"Ambiguous Market" Holds - e.g DOsMA
+          crossover without intermediate MACD crossover when strategy
+          is in "Close after MACD crossover" state; DOsMA or MACD
+          crossover in a "Crossover vector" not isomorphic to the open
+          order; DoSMA crossover in a "Crossover vector" not
+          sufficient to illustrate a sustained crossover.</remark></member>
+        </simplelist>
+        
+    </refsect3>
+
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Case Studies</title>
+
+    <remark>developed primarily in reference to EURUSD and USDCHF
+    currency pairs - may not be advisable for trading onto JPY currency
+    pairs</remark>
+
+    <remark>The development of this strategy was begun in reference to
+    a duration of relatively <emphasis>volatile</emphasis> and
+    <emphasis>consistent</emphasis> trends on EURUSD. Some of the
+    indicator signals applied in this strategy may not be productive
+    to a strong sense of confidence for trading onto an inactive of
+    ambiguous/wild market.</remark>
+  </refsect1>
+
+  <refsect1>
+    <title>Copyright Notice</title>
+
+    <para>Copyright (c) 2016, Sean Champ</para>
+
+    <para>All rights reserved.</para>
+    
+    <para>Redistribution and use of this documentatary resource, with
+    or without modification, is permitted provided that the following
+    condition is met: Redistributions of this documentation, in source
+    code or in published content, must retain the above copyright
+    notice, this statement of conditions, and the following
+    disclaimer.</para>
+    
+
+    <para>THIS DOCUMENTATION IS PROVIDED BY THE COPYRIGHT HOLDERS AND
+    CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
+    INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+    MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+    DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS
+    BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+    EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
+    TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, 
+    DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+    THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+    (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+    OF THIS DOCUMENTATION, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+    DAMAGE.</para>
+
+      
+  </refsect1>
+</refentry>
