@@ -50,6 +50,9 @@
        # Practical Applications of Theory - Technical Indicators
        
        Heikin Ashi Indicator (Candlestick using HA calculation method)
+       
+       Moving Average (Indicator) (Ed. Note: See MT4 includes/MovingAverages.mqh)
+
 
        DMACD (Note: "Difference over time" indicator w/ additional
        ratio display. Incidental application as a crossover indicator;

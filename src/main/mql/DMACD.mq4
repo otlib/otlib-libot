@@ -78,6 +78,7 @@ int macdmaPadBuffers(const int len) {
    if(len > bufflen) {
       // FIXME: rename 'rsvbars' (defined in libea.mqh)
       ArrayResize(MDiff,len,rsvbars);
+      ArrayResize(MRatio,len,rsvbars);
       // PrintFormat("MACDMA::Pad Buffers %d => %d ",bufflen, len); // DEBUG
       bufflen = len;
    } 

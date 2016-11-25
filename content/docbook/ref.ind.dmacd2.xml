@@ -12,6 +12,18 @@
     <remark>TO DO - Compare to DMACD, apropos MACD calculation,
     oscillator TA</remark>
 
+    <!-- Ed. Note: The DMACD2 rate line and the DMACD "Difference Line"
+         as rate line both function, essentially, as a "Delayed MACD"
+         rate line, but only on non-JPY markets (Peculiar!).
+
+         On the same non-JPY markets, the "DoSMa/Price Ratio" rate
+         line - avaialble with the OTILB DOsMA indicator - functions
+         as a "Delayed OsMA" rate line.
+
+         The "different beavior" of these indicators on JPY symbols
+         should bear some further study.
+    --> 
+    
     <sidebar>
       <title>Analogous Indicator: CCI</title>
       
